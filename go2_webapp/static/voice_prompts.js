@@ -40,7 +40,7 @@ window.ROBOGYM_VOICE_CONFIG = {
   },
   workouts: {
     "yoga-relax": {
-      intro: "Welcome to Yoga and Relax. This workout is all about smooth movement and breathing.",
+      intro: "Welcome to Guided Session. This workout is all about smooth movement and breathing.",
     },
     "full-body": {
       intro: "Welcome to Full Body. We will wake up your whole body with strong balanced moves.",
