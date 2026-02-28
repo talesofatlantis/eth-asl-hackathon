@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "go2": {
+      "command": "/Users/atlas/ETH/ETH-ASL-HACK/go2_py311/bin/python",
+      "args": ["-m", "go2_mcp"],
+      "cwd": "/Users/atlas/ETH/ETH-ASL-HACK/eth-asl-hackathon"
+    }
+  }
+}

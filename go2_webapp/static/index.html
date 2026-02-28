@@ -1,12 +1,37 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Robogym</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            heading: ['Manrope', 'Inter', 'system-ui', 'sans-serif'],
+          },
+          colors: {
+            primary: { DEFAULT: '#000000', hover: '#171717' },
+            surface: '#fafafa',
+            border: '#e5e5e5',
+          },
+          maxWidth: {
+            content: '42rem',
+            'screen-sm': '640px',
+          },
+        },
+      },
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="min-h-screen bg-white text-neutral-900 antialiased">
   <div id="root"></div>
 
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>

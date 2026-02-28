@@ -90,12 +90,14 @@ function CameraFeed() {
   }, []);
 
   return (
-    <div className="camera-panel">
-      <div className="camera-status">{status}</div>
+    <div className="relative overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-900 min-h-[300px] sm:min-h-[420px]">
+      <div className="absolute top-3 right-3 z-10 rounded-full border border-neutral-600 bg-neutral-800/95 px-3 py-1.5 text-xs font-medium text-neutral-200">
+        {status}
+      </div>
       {imageUrl ? (
-        <img src={imageUrl} alt="Robot dog camera feed" />
+        <img src={imageUrl} alt="Robot dog camera feed" className="w-full h-full min-h-[300px] sm:min-h-[420px] object-cover block" />
       ) : (
-        <div className="no-feed">
+        <div className="min-h-[300px] sm:min-h-[420px] flex items-center justify-center text-neutral-500 text-base">
           Waiting for robot camera feed...
         </div>
       )}
@@ -214,27 +216,33 @@ function App() {
     setStep("start");
   };
 
+  const screenBase = "min-h-screen max-w-4xl mx-auto px-6 py-12 md:py-16";
+  const tileClass = "rounded-2xl min-h-[160px] px-6 py-5 text-left text-lg md:text-xl font-semibold text-neutral-900 bg-white border border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50 transition-colors duration-200 cursor-pointer";
+
   if (step === "start") {
     return (
-      <div className="screen center-screen">
-        <h1 className="app-title">ROBOGYM</h1>
-        <p className="subtitle">Train with your robot dog coach</p>
-        <button className="primary-btn" onClick={() => setStep("workout-select")}>
+      <div className={`${screenBase} flex flex-col justify-center items-center gap-8`}>
+        <h1 className="font-heading text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-neutral-900">ROBOGYM</h1>
+        <p className="text-neutral-500 text-base md:text-lg text-center max-w-md">Train with your robot dog coach</p>
+        <button
+          className="rounded-full px-8 py-3.5 bg-black hover:bg-neutral-800 text-white font-semibold text-sm transition-colors"
+          onClick={() => setStep("workout-select")}
+        >
           Start Workout
         </button>
-        <div className="agent-panel">
-          <h3 className="agent-panel-title">AI Coach (Gemini)</h3>
+        <div className="w-full max-w-lg mt-4 p-6 bg-white border border-neutral-200 rounded-2xl">
+          <h3 className="font-heading text-base font-semibold text-neutral-900 mb-3">AI Coach (Gemini)</h3>
           {agentAvailable === false && (
-            <p className="agent-unavailable">
-              Add <code>GEMINI_API_KEY</code> to <code>.env</code> at project root to enable the AI coach.
+            <p className="text-sm text-neutral-500">
+              Add <code className="bg-neutral-100 px-1.5 py-0.5 rounded text-neutral-700">GEMINI_API_KEY</code> to <code className="bg-neutral-100 px-1.5 py-0.5 rounded text-neutral-700">.env</code> at project root to enable the AI coach.
             </p>
           )}
           {agentAvailable === true && (
             <>
-              <div className="agent-input-row">
+              <div className="flex gap-3 mb-3">
                 <input
                   type="text"
-                  className="agent-input"
+                  className="flex-1 px-4 py-2.5 border border-neutral-200 rounded-xl bg-neutral-50 text-neutral-900 placeholder-neutral-400 text-[15px] focus:ring-2 focus:ring-neutral-900 focus:border-neutral-900 outline-none transition-shadow"
                   placeholder="e.g. Make the robot stand up and wave hello"
                   value={agentMessage}
                   onChange={(e) => setAgentMessage(e.target.value)}
@@ -242,7 +250,7 @@ function App() {
                   disabled={agentLoading}
                 />
                 <button
-                  className="agent-send-btn"
+                  className="px-5 py-2.5 rounded-xl bg-black hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm transition-colors"
                   onClick={sendAgentMessage}
                   disabled={agentLoading || !agentMessage.trim()}
                 >
@@ -250,7 +258,9 @@ function App() {
                 </button>
               </div>
               {agentReply && (
-                <div className="agent-reply">{agentReply}</div>
+                <div className="mt-3 p-4 bg-neutral-50 border border-neutral-100 rounded-xl text-neutral-700 text-[15px] leading-relaxed whitespace-pre-wrap">
+                  {agentReply}
+                </div>
               )}
             </>
           )}
@@ -261,13 +271,13 @@ function App() {
 
   if (step === "workout-select") {
     return (
-      <div className="screen">
-        <h2 className="screen-title">Select Your Workout</h2>
-        <div className="tile-grid">
+      <div className={screenBase}>
+        <h2 className="font-heading text-center mb-10 text-2xl md:text-3xl font-bold tracking-tight text-neutral-900">Select Your Workout</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
           {WORKOUTS.map((workout) => (
             <button
               key={workout.id}
-              className="tile"
+              className={tileClass}
               onClick={() => {
                 setSelectedWorkout(workout);
                 setStep("trainer-select");
@@ -283,24 +293,27 @@ function App() {
 
   if (step === "trainer-select") {
     return (
-      <div className="screen">
-        <h2 className="screen-title">Select Your Trainer</h2>
-        <div className="tile-grid">
+      <div className={screenBase}>
+        <h2 className="font-heading text-center mb-10 text-2xl md:text-3xl font-bold tracking-tight text-neutral-900">Select Your Trainer</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
           {TRAINERS.map((trainer) => (
             <button
               key={trainer.id}
-              className="tile trainer-tile"
+              className={`${tileClass} flex flex-col justify-end items-start`}
               onClick={() => {
                 setSelectedTrainer(trainer);
                 setStep("instructions");
               }}
             >
-              <span className="tile-title">{trainer.name}</span>
-              <span className="tile-subtitle">{trainer.tagline}</span>
+              <span className="font-heading text-lg font-semibold text-neutral-900">{trainer.name}</span>
+              <span className="mt-1.5 text-sm font-medium text-neutral-500">{trainer.tagline}</span>
             </button>
           ))}
         </div>
-        <button className="secondary-btn" onClick={() => setStep("workout-select")}>
+        <button
+          className="mt-10 mx-auto block rounded-full px-8 py-3.5 bg-black hover:bg-neutral-800 text-white font-semibold text-sm transition-colors"
+          onClick={() => setStep("workout-select")}
+        >
           Back
         </button>
       </div>
@@ -309,27 +322,24 @@ function App() {
 
   if (step === "instructions") {
     return (
-      <div className="screen center-screen">
-        <h2 className="screen-title">Instructions</h2>
-        <div className="info-card">
+      <div className={`${screenBase} flex flex-col justify-center items-center gap-8`}>
+        <h2 className="font-heading text-center text-2xl md:text-3xl font-bold tracking-tight text-neutral-900">Instructions</h2>
+        <div className="w-full max-w-lg bg-white border border-neutral-200 rounded-2xl p-6 leading-relaxed text-neutral-600">
           <p>1. Follow the voice instructions.</p>
           <p>2. The dog will demonstrate.</p>
-          <p className="meta-line">
-            Workout: <strong>{selectedWorkout ? selectedWorkout.label : "Not selected"}</strong>
-          </p>
-          <p className="meta-line">
-            Trainer: <strong>{selectedTrainer ? selectedTrainer.name : "Not selected"}</strong>
-          </p>
-          <p className="meta-line">
-            Planned moves:
-          </p>
-          <ul className="moves-list">
+          <p className="mt-2 text-neutral-500">Workout: <strong className="text-neutral-900">{selectedWorkout ? selectedWorkout.label : "Not selected"}</strong></p>
+          <p className="mt-1 text-neutral-500">Trainer: <strong className="text-neutral-900">{selectedTrainer ? selectedTrainer.name : "Not selected"}</strong></p>
+          <p className="mt-1 text-neutral-500">Planned moves:</p>
+          <ul className="mt-1 ml-5 list-disc text-neutral-500 space-y-0.5">
             {workoutMoves.map((move) => (
               <li key={move}>{move}</li>
             ))}
           </ul>
         </div>
-        <button className="primary-btn" onClick={beginCountdown}>
+        <button
+          className="rounded-full px-8 py-3.5 bg-black hover:bg-neutral-800 text-white font-semibold text-sm transition-colors"
+          onClick={beginCountdown}
+        >
           Start in 3...
         </button>
       </div>
@@ -338,23 +348,28 @@ function App() {
 
   if (step === "countdown") {
     return (
-      <div className="screen center-screen">
-        <h2 className="screen-title">Get Ready</h2>
-        <div className="countdown-circle">{countdownValue}</div>
+      <div className={`${screenBase} flex flex-col justify-center items-center gap-10`}>
+        <h2 className="font-heading text-center text-2xl md:text-3xl font-bold tracking-tight text-neutral-900">Get Ready</h2>
+        <div className="w-36 aspect-square rounded-full bg-white border border-neutral-200 flex items-center justify-center text-5xl font-bold text-neutral-900">
+          {countdownValue}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="screen workout-screen">
-      <div className="workout-header">
-        <h2 className="exercise-title">{workoutTitle}</h2>
-        <p className="current-exercise-line">
-          Current exercise: <strong>{currentMove}</strong> ({moveSecondsLeft}s)
+    <div className={`${screenBase} flex flex-col gap-8`}>
+      <div className="text-center">
+        <h2 className="font-heading text-2xl md:text-4xl font-bold tracking-tight text-neutral-900">{workoutTitle}</h2>
+        <p className="mt-2 text-neutral-500 text-base">
+          Current exercise: <strong className="text-neutral-900">{currentMove}</strong> ({moveSecondsLeft}s)
         </p>
       </div>
       <CameraFeed />
-      <button className="secondary-btn" onClick={goToStart}>
+      <button
+        className="mt-2 mx-auto block rounded-full px-8 py-3.5 bg-black hover:bg-neutral-800 text-white font-semibold text-sm transition-colors"
+        onClick={goToStart}
+      >
         Back to Start
       </button>
     </div>

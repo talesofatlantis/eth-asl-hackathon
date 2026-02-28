@@ -21,11 +21,13 @@ go2/
 ├── go2_webapp/          # FastAPI web app (python -m go2_webapp)
 │   ├── __main__.py      # HTTP/WS server, proxies to bridge via ZMQ
 │   └── static/          # Single-page UI (HTML + vanilla JS + CSS)
-├── go2_agent/           # Gemini ADK agent (used by webapp; not MCP — talks to bridge via ZMQ)
-│   ├── config.py        # Env / .env (GEMINI_API_KEY, GO2_BRIDGE_HOST, etc.)
-│   ├── bridge.py       # ZMQ client to bridge (send_command, format_response)
-│   ├── tools.py        # Agent tools (get_robot_status, execute_robot_action, move_robot, …)
-│   └── runner.py       # ADK Agent/App/InMemoryRunner, get_runner, chat
+├── go2_agent/           # Gemini ADK agent (used by webapp; talks to robot through MCP)
+│   ├── config.py       # Env / .env (GEMINI_API_KEY, GO2_BRIDGE_HOST, PROJECT_ROOT)
+│   ├── bridge.py       # ZMQ client to bridge (optional; tools can use MCP instead)
+│   ├── tools.py        # Sync tools calling bridge (legacy)
+│   ├── tools_mcp.py    # Async tools that call go2_mcp (agent uses these)
+│   ├── mcp_client.py   # MCP client (stdio to go2_mcp), mcp_session_context, call_tool
+│   └── runner.py       # ADK Agent/App/InMemoryRunner, get_runner, chat (chat runs inside mcp_session_context)
 ├── go2_mcp/             # MCP server (python -m go2_mcp)
 │   ├── server.py        # FastMCP tools → ZMQ bridge client
 │   └── __main__.py      # Entry point (stdio transport)

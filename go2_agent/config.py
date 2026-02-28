@@ -5,11 +5,13 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-# Load .env from project root when used as a package (parent of go2_agent)
+# Project root (parent of go2_agent); used e.g. as cwd when spawning go2_mcp
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+# Load .env from project root when used as a package
 try:
     from dotenv import load_dotenv
-    _root = Path(__file__).resolve().parent.parent
-    load_dotenv(_root / ".env")
+    load_dotenv(PROJECT_ROOT / ".env")
     load_dotenv()
 except ImportError:
     pass

@@ -1,11 +1,11 @@
-"""Gemini ADK agent runner: build agent, run chat (not using MCP — uses ADK + ZMQ bridge)."""
+"""Gemini ADK agent runner: build agent, run chat. Agent talks to the robot through MCP (go2_mcp)."""
 
 from __future__ import annotations
 
 import logging
 
 from . import config
-from . import tools
+from . import tools_mcp
 
 log = logging.getLogger("go2_agent")
 
@@ -14,7 +14,7 @@ _runner = None
 
 
 def _build_agent():
-    """Build the ADK app with root agent and tools. Returns (app, runner) or (None, None) if no API key."""
+    """Build the ADK app with root agent and MCP-backed async tools. Returns (app, runner) or (None, None) if no API key."""
     if not config.GEMINI_API_KEY:
         return None, None
     try:
@@ -36,14 +36,14 @@ def _build_agent():
             "Be concise and friendly. After using a tool, summarize what you did in one short sentence."
         ),
         tools=[
-            tools.get_robot_status,
-            tools.list_robot_actions,
-            tools.execute_robot_action,
-            tools.move_robot,
-            tools.stop_robot,
-            tools.set_obstacle_avoidance,
-            tools.set_speed_level,
-            tools.set_robot_light,
+            tools_mcp.get_robot_status,
+            tools_mcp.list_robot_actions,
+            tools_mcp.execute_robot_action,
+            tools_mcp.move_robot,
+            tools_mcp.stop_robot,
+            tools_mcp.set_obstacle_avoidance,
+            tools_mcp.set_speed_level,
+            tools_mcp.set_robot_light,
         ],
     )
     app = App(name="robogym", root_agent=root_agent)
@@ -65,28 +65,30 @@ def is_agent_available() -> bool:
 
 
 async def chat(user_message: str) -> str:
-    """Send a message to the agent and return its reply. Uses ADK InMemoryRunner.run_debug."""
+    """Send a message to the agent and return its reply. Agent talks to the robot through MCP (go2_mcp)."""
     runner = get_runner()
     if not runner:
         return (
             "Agent is not available. Add GEMINI_API_KEY (or GOOGLE_API_KEY) to .env at project root "
             "and ensure google-adk is installed (pip install google-adk)."
         )
+    from .mcp_client import mcp_session_context
     try:
-        events = await runner.run_debug(user_message, quiet=True)
-        # Extract last agent text content from events
-        for event in reversed(events):
-            if hasattr(event, "content") and event.content:
-                if hasattr(event.content, "parts"):
-                    for part in event.content.parts:
-                        if hasattr(part, "text") and part.text:
-                            return part.text
-                if hasattr(event.content, "text"):
-                    return event.content.text
-            if getattr(event, "type", None) and "content" in str(event).lower():
+        async with mcp_session_context():
+            events = await runner.run_debug(user_message, quiet=True)
+            # Extract last agent text content from events
+            for event in reversed(events):
                 if hasattr(event, "content") and event.content:
-                    return str(event.content)
-        return "The agent did not return a text reply."
+                    if hasattr(event.content, "parts"):
+                        for part in event.content.parts:
+                            if hasattr(part, "text") and part.text:
+                                return part.text
+                    if hasattr(event.content, "text"):
+                        return event.content.text
+                if getattr(event, "type", None) and "content" in str(event).lower():
+                    if hasattr(event, "content") and event.content:
+                        return str(event.content)
+            return "The agent did not return a text reply."
     except Exception as e:
         log.exception("Agent chat failed")
         return f"Agent error: {e}"
