@@ -1,5 +1,7 @@
 const { useEffect, useMemo, useRef, useState } = React;
 const MOVE_DURATION_SECONDS = 20;
+const MOVE_NUDGE_MS = 350;
+const MAX_WORKOUT_EXERCISES = 5;
 
 const DEFAULT_WORKOUTS = [
   {
@@ -29,6 +31,73 @@ const TRAINERS = [
   { id: "captain-nova", name: "Captain Nova", tagline: "Energetic and motivating" },
   { id: "dr-blaze", name: "Dr. Blaze", tagline: "High-intensity challenge" },
 ];
+
+const DEFAULT_VOICE_CONFIG = {
+  global: {
+    startPrompt: "Click start to start the workout.",
+    simpleVoiceTestPrompt: "This is a simple voice test from Robogym.",
+    workoutSelectPrompt: "Choose your workout.",
+    customWorkoutPrompt: "Describe your goal. Then generate your custom workout.",
+    trainerSelectPrompt: "Choose your coach.",
+    instructionsPrompt:
+      "{{trainerIntro}} {{workoutIntro}} Follow the voice instructions, and the dog will demonstrate.",
+    completionPrompt: "Workout complete. Congratulations.",
+    voiceEnabledPrompt: "Voice guidance enabled.",
+    moveFallbackLine: "Now: {{current}}. Next: {{next}} in {{seconds}} seconds.",
+    workoutIntroFallback: "Today we are doing {{workoutName}}.",
+  },
+  trainers: {},
+  workouts: {},
+};
+
+const VOICE_CONFIG = window.ROBOGYM_VOICE_CONFIG || DEFAULT_VOICE_CONFIG;
+
+async function sendRobotCommand(cmd, params) {
+  const body = { cmd };
+  if (params) body.params = params;
+  const resp = await fetch("/api/command", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) {
+    throw new Error(`HTTP ${resp.status}`);
+  }
+  return resp.json();
+}
+
+async function requestCustomWorkout(prompt) {
+  const resp = await fetch("/api/custom_workout", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt }),
+  });
+  const data = await resp.json();
+  if (!resp.ok || !data.ok) {
+    throw new Error(data.msg || `HTTP ${resp.status}`);
+  }
+  return data.workout;
+}
+
+function formatMoveName(move) {
+  if (!move) return "";
+  return move.replace(/_/g, " ");
+}
+
+function renderTemplate(template, values) {
+  if (typeof template !== "string") return "";
+  return template.replace(/\{\{(\w+)\}\}/g, (_, key) => values[key] ?? "");
+}
+
+function createSpeechRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) return null;
+  const recognition = new SpeechRecognition();
+  recognition.lang = "en-US";
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  return recognition;
+}
 
 function CameraFeed() {
   const [imageUrl, setImageUrl] = useState("");
@@ -217,6 +286,11 @@ function App() {
   const currentMoveIndex = useMemo(() => {
     if (workoutMoves.length === 0) return 0;
     return Math.floor(elapsedSeconds / MOVE_DURATION_SECONDS) % workoutMoves.length;
+  }, [workoutMoves, elapsedSeconds]);
+
+  const currentMoveSlot = useMemo(() => {
+    if (workoutMoves.length === 0) return 0;
+    return Math.floor(elapsedSeconds / MOVE_DURATION_SECONDS);
   }, [workoutMoves, elapsedSeconds]);
 
   const moveSecondsLeft = useMemo(() => {
@@ -425,6 +499,21 @@ function App() {
         <div className="w-36 aspect-square rounded-full bg-white border border-neutral-200 flex items-center justify-center text-5xl font-bold text-neutral-900">
           {countdownValue}
         </div>
+      </div>
+    );
+  }
+
+  if (step === "finished") {
+    return (
+      <div className={`${screenBase} flex flex-col justify-center items-center gap-8`}>
+        <h2 className="font-heading text-2xl md:text-3xl font-bold tracking-tight text-neutral-900">Workout Complete</h2>
+        <p className="text-neutral-500 text-base">Great job! You completed 5 exercises.</p>
+        <button
+          className="rounded-full px-8 py-3.5 bg-black hover:bg-neutral-800 text-white font-semibold text-sm transition-colors"
+          onClick={goToStart}
+        >
+          Back to Start
+        </button>
       </div>
     );
   }
