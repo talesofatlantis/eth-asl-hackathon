@@ -286,14 +286,8 @@ function App() {
     <div className="screen workout-screen">
       <div className="workout-header">
         <h2 className="exercise-title">{workoutTitle}</h2>
-        <p className="subtitle">
-          {selectedTrainer ? selectedTrainer.name : "Trainer"} is guiding you
-        </p>
         <p className="current-exercise-line">
           Current exercise: <strong>{currentMove}</strong> ({moveSecondsLeft}s)
-        </p>
-        <p className="meta-line">
-          Moves in this workout: {workoutMoves.join(", ")}
         </p>
       </div>
       <CameraFeed />
