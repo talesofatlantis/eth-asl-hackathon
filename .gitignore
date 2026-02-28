@@ -20,6 +20,13 @@ Thumbs.db
 *.swp
 *.swo
 
+# Env and secrets (never commit keys)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
 # Misc
 *.jpg
 *.png

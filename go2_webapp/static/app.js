@@ -1,7 +1,7 @@
 const { useEffect, useMemo, useRef, useState } = React;
-const MOVE_DURATION_SECONDS = 20;
+const MOVE_DURATION_SECONDS = 5;
 const MOVE_NUDGE_MS = 350;
-const MAX_WORKOUT_EXERCISES = 5;
+const MAX_WORKOUT_EXERCISES = 11;
 
 const DEFAULT_WORKOUTS = [
   {
@@ -374,7 +374,7 @@ function App() {
         <h1 className="font-heading text-xl md:text-2xl font-bold tracking-tight text-neutral-900 fixed top-0 left-0 p-6 md:p-8 z-10">ROBOGYM</h1>
         <div className="flex flex-1 w-full flex-col items-center justify-center">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-10 w-full max-w-3xl mx-auto">
-          {WORKOUTS.map((workout) => (
+          {WORKOUTS.map((workout, idx) => (
             <button
               key={workout.id}
               type="button"
@@ -384,7 +384,18 @@ function App() {
                 setStep("trainer-select");
               }}
             >
-              <div className="absolute inset-0 bg-gradient-to-b from-neutral-700 to-neutral-900 transition-transform duration-500 ease-in-out group-hover:scale-105" />
+              {idx === 0 ? (
+                <div
+                  className="absolute inset-0 transition-transform duration-500 ease-in-out group-hover:scale-105"
+                  style={{
+                    backgroundImage: "url(https://images.unsplash.com/photo-1633707744005-7a84dbe0035a?q=80&w=1287&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D)",
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                  }}
+                />
+              ) : (
+                <div className="absolute inset-0 bg-gradient-to-b from-neutral-700 to-neutral-900 transition-transform duration-500 ease-in-out group-hover:scale-105" />
+              )}
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
               <div className="relative z-10 flex h-full flex-col justify-end p-5 text-white transition-transform duration-300 ease-in-out group-hover:-translate-y-1">
                 <p className="text-xs font-medium uppercase tracking-wider text-neutral-300">Mode</p>
