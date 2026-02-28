@@ -5,7 +5,7 @@ window.ROBOGYM_WORKOUTS = [
     id: "yoga-relax",
     label: "Yoga & Relax",
     exerciseName: "Gentle Yoga Flow",
-    moves: ["hello", "stand_up", "stretch", "stretch", "stretch", "hello", "sit", "balance_stand", "stand_up", "heart","dance2", "back_flip"]
+    moves: ["move_backward", "hello", "stand_up", "stretch", "stretch", "stretch", "move_backward", "hello", "sit", "balance_stand", "stand_up", "heart", "dance2", "back_flip"]
   },
   {
     id: "full-body",

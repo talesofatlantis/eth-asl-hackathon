@@ -330,6 +330,11 @@ function App() {
       .catch((err) => setWorkoutCommandStatus("Stand failed: " + err.message));
   }, [step, workoutMoves.length]);
 
+  const MOVE_BACKWARD_MS = 700;
+  const MOVE_BACKWARD_PAUSE_MS = 150;
+  const MOVE_BACKWARD_COUNT = 10;
+  const MOVE_BACKWARD_VX = -0.3;
+
   // Send the current move to the robot when the workout is active and the move index changes.
   useEffect(() => {
     if (step !== "workout" || workoutMoves.length === 0) return;
@@ -337,6 +342,55 @@ function App() {
     lastExecutedMoveIndexRef.current = currentMoveIndex;
     const moveName = workoutMoves[currentMoveIndex];
     setWorkoutCommandStatus("Sending: " + moveName + "…");
+
+    if (moveName === "move_backward") {
+      let count = 0;
+      let cancelled = false;
+      const timers = [];
+
+      const runCycle = () => {
+        if (cancelled || count >= MOVE_BACKWARD_COUNT) {
+          if (!cancelled) {
+            fetch("/api/command", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ cmd: "stop" }),
+            }).then((r) => r.json()).then((d) => setWorkoutCommandStatus(d.ok ? "Sent: move_backward (x10)" : d.msg || "Stop failed"));
+          }
+          return;
+        }
+        setWorkoutCommandStatus("Moving backward " + (count + 1) + "/" + MOVE_BACKWARD_COUNT + "…");
+        fetch("/api/command", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cmd: "move", params: { vx: MOVE_BACKWARD_VX, vy: 0, vyaw: 0 } }),
+        });
+        const t1 = setTimeout(() => {
+          if (cancelled) return;
+          fetch("/api/command", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ cmd: "stop" }),
+          });
+          count++;
+          const t2 = setTimeout(runCycle, MOVE_BACKWARD_PAUSE_MS);
+          timers.push(t2);
+        }, MOVE_BACKWARD_MS);
+        timers.push(t1);
+      };
+
+      runCycle();
+      return () => {
+        cancelled = true;
+        fetch("/api/command", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cmd: "stop" }),
+        }).catch(() => {});
+        timers.forEach((id) => clearTimeout(id));
+      };
+    }
+
     fetch("/api/command", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

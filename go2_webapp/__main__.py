@@ -71,6 +71,7 @@ ALLOWED_MOVES = [
     "sit",
     "hello",
     "stretch",
+    "move_backward",
     "dance1",
     "dance2",
     "heart",
