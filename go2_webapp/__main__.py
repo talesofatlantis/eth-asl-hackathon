@@ -160,7 +160,11 @@ def _build_custom_workout_from_prompt(user_prompt: str) -> dict:
         "Return ONLY JSON with keys: title (string), reason (string), moves (array of 5 strings). "
         "Each move must be chosen only from this list: "
         + ", ".join(ALLOWED_MOVES)
-        + "."
+        + ". "
+        "Movement tags for variety: lower_body (sit, stretch, stand_down, front_jump), "
+        "chest (hello, stand_up, balance_stand, hand_stand, heart), "
+        "full_body (stand_up, stand_down, balance_stand, recovery_stand, sit, stretch, front_flip, back_flip, left_flip, hand_stand, front_jump, stop_move, damp), "
+        "dance (dance1, dance2, heart). Use tags to match user intent (e.g. 'lower body' or 'dance')."
     )
     user_content = f"User workout request: {user_prompt}"
     response = client.chat.completions.create(

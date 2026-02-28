@@ -6,7 +6,7 @@ const MAX_WORKOUT_EXERCISES = 11;
 const DEFAULT_WORKOUTS = [
   {
     id: "yoga-relax",
-    label: "Relaxed",
+    label: "Guided Session",
     exerciseName: "Gentle Yoga Flow",
     moves: ["stretch", "hello", "sit", "stand_up", "heart"],
   },
@@ -26,10 +26,14 @@ const DEFAULT_WORKOUTS = [
 
 const WORKOUTS = Array.isArray(window.ROBOGYM_WORKOUTS) ? window.ROBOGYM_WORKOUTS : DEFAULT_WORKOUTS;
 
+/** Third card on start screen: generates a custom workout via API (no predefined moves). */
+const CREATIVE_MODE = { id: "creative", label: "Creator Mode", exerciseName: "Custom", moves: [] };
+const START_MODES = [...WORKOUTS.slice(0, 2), CREATIVE_MODE];
+
 const TRAINERS = [
-  { id: "coach-rio", name: "Coach Rio", tagline: "Calm and focused" },
-  { id: "captain-nova", name: "Captain Nova", tagline: "Energetic and motivating" },
-  { id: "dr-blaze", name: "Dr. Blaze", tagline: "High-intensity challenge" },
+  { id: "intensity-low", name: "Low", tagline: "Gentle pace" },
+  { id: "intensity-medium", name: "Medium", tagline: "Moderate effort" },
+  { id: "intensity-high", name: "High", tagline: "High intensity" },
 ];
 
 const DEFAULT_VOICE_CONFIG = {
@@ -188,6 +192,9 @@ function App() {
   const [agentLog, setAgentLog] = useState([]);
   const [coachSlide, setCoachSlide] = useState(0); // 0 = intro, 1 = chat (onboarding-style)
   const [workoutCommandStatus, setWorkoutCommandStatus] = useState("");
+  const [creativePrompt, setCreativePrompt] = useState("");
+  const [creativeLoading, setCreativeLoading] = useState(false);
+  const [creativeError, setCreativeError] = useState("");
   const lastExecutedMoveIndexRef = useRef(-1);
   const standUpSentRef = useRef(false);
   const agentLogIdRef = useRef(0);
@@ -262,8 +269,12 @@ function App() {
 
   const workoutMoves = useMemo(() => {
     if (!selectedWorkout || !Array.isArray(selectedWorkout.moves)) return [];
-    return selectedWorkout.moves;
-  }, [selectedWorkout]);
+    const base = selectedWorkout.moves;
+    const multiplier = !selectedTrainer ? 1 : selectedTrainer.id === "intensity-low" ? 1 : selectedTrainer.id === "intensity-medium" ? 2 : 3;
+    const out = [];
+    for (let i = 0; i < multiplier; i++) out.push(...base);
+    return out;
+  }, [selectedWorkout, selectedTrainer]);
 
   useEffect(() => {
     if (step !== "workout") return;
@@ -416,6 +427,8 @@ function App() {
     setWorkoutStartedAtMs(null);
     setClockMs(Date.now());
     setCoachSlide(0);
+    setCreativePrompt("");
+    setCreativeError("");
     setStep("start");
   };
 
@@ -428,14 +441,18 @@ function App() {
         <h1 className="font-heading text-xl md:text-2xl font-bold tracking-tight text-neutral-900 fixed top-0 left-0 p-6 md:p-8 z-10">ROBOGYM</h1>
         <div className="flex flex-1 w-full flex-col items-center justify-center">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-10 w-full max-w-3xl mx-auto">
-          {WORKOUTS.map((workout, idx) => (
+          {START_MODES.map((workout, idx) => (
             <button
               key={workout.id}
               type="button"
               className={`${cardBaseClass} aspect-[3/4] min-h-[200px] hover:border-neutral-400 hover:shadow-md active:scale-[0.98]`}
               onClick={() => {
-                setSelectedWorkout(workout);
-                setStep("trainer-select");
+                if (workout.id === "creative") {
+                  setStep("creative");
+                } else {
+                  setSelectedWorkout(workout);
+                  setStep("trainer-select");
+                }
               }}
             >
               {idx === 0 ? (
@@ -570,27 +587,81 @@ function App() {
     );
   }
 
+  if (step === "creative") {
+    const handleGenerateCreative = () => {
+      const prompt = creativePrompt.trim();
+      if (!prompt || creativeLoading) return;
+      setCreativeError("");
+      setCreativeLoading(true);
+      requestCustomWorkout(prompt)
+        .then((workout) => {
+          setSelectedWorkout(workout);
+          setStep("trainer-select");
+        })
+        .catch((err) => {
+          setCreativeError(err.message || "Failed to generate workout.");
+        })
+        .finally(() => setCreativeLoading(false));
+    };
+    return (
+      <div className={`${screenBase} flex min-h-screen flex-col items-center justify-center`}>
+        <h2 className="font-heading text-center mb-4 text-2xl md:text-3xl font-bold tracking-tight text-neutral-900">Create your own</h2>
+        <p className="text-neutral-600 text-center mb-8 max-w-md">Describe the workout you want and we&apos;ll generate a custom routine for your robot.</p>
+        <div className="w-full max-w-md mx-auto space-y-4">
+          <textarea
+            className="w-full px-4 py-3 border border-neutral-200 rounded-xl bg-white text-neutral-900 placeholder-neutral-400 text-[15px] focus:ring-2 focus:ring-neutral-900 focus:border-neutral-900 outline-none transition-shadow resize-none"
+            rows={3}
+            placeholder="e.g. A short warm-up with stretches and a wave, then something fun like a dance"
+            value={creativePrompt}
+            onChange={(e) => setCreativePrompt(e.target.value)}
+            disabled={creativeLoading}
+          />
+          {creativeError && (
+            <p className="text-sm text-red-600">{creativeError}</p>
+          )}
+          <div className="flex gap-3">
+            <button
+              type="button"
+              className="flex-1 px-5 py-3 rounded-xl bg-black hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm transition-colors"
+              onClick={handleGenerateCreative}
+              disabled={creativeLoading || !creativePrompt.trim()}
+            >
+              {creativeLoading ? "Generating…" : "Generate workout"}
+            </button>
+            <button
+              type="button"
+              className="px-5 py-3 rounded-xl border border-neutral-200 hover:bg-neutral-50 text-neutral-700 font-medium text-sm transition-colors"
+              onClick={() => { setStep("start"); setCreativeError(""); }}
+            >
+              Back
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (step === "trainer-select") {
     return (
       <div className={`${screenBase} flex min-h-screen flex-col items-center justify-center`}>
-        <h2 className="font-heading text-center mb-10 text-2xl md:text-3xl font-bold tracking-tight text-neutral-900">Select Your Trainer</h2>
+        <h2 className="font-heading text-center mb-10 text-2xl md:text-3xl font-bold tracking-tight text-neutral-900">Select Intensity</h2>
         <div className="flex w-full flex-1 items-center justify-center">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 w-full max-w-3xl mx-auto">
           {TRAINERS.map((trainer) => (
             <button
               key={trainer.id}
               type="button"
-              className={`${cardBaseClass} aspect-[3/4] min-h-[200px] hover:border-neutral-400 hover:shadow-md active:scale-[0.98] flex flex-col justify-end items-start`}
+              className={`${cardBaseClass} aspect-[3/4] min-h-[200px] hover:border-neutral-400 hover:shadow-md active:scale-[0.98]`}
               onClick={() => {
                 setSelectedTrainer(trainer);
                 setStep("instructions");
               }}
             >
-              <div className="absolute inset-0 bg-gradient-to-b from-neutral-600 to-neutral-800 transition-transform duration-500 ease-in-out group-hover:scale-105" />
+              <div className="absolute inset-0 bg-gradient-to-b from-neutral-700 to-neutral-900 transition-transform duration-500 ease-in-out group-hover:scale-105" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-              <div className="relative z-10 p-5 text-white transition-transform duration-300 ease-in-out group-hover:-translate-y-1">
-                <p className="text-xs font-medium uppercase tracking-wider text-neutral-300">Coach</p>
-                <h2 className="mt-1 font-heading text-xl font-bold leading-tight tracking-tight text-white md:text-2xl">
+              <div className="relative z-10 flex h-full flex-col justify-end items-center text-center p-5 text-white transition-transform duration-300 ease-in-out group-hover:-translate-y-1">
+                <p className="text-xs font-medium uppercase tracking-wider text-neutral-300">Intensity</p>
+                <h2 className="mt-1 text-xl font-bold leading-tight tracking-tight text-white md:text-2xl">
                   {trainer.name}
                 </h2>
                 <span className="mt-1.5 block text-sm font-medium text-neutral-400">{trainer.tagline}</span>
@@ -617,7 +688,7 @@ function App() {
           <p>1. Follow the voice instructions.</p>
           <p>2. The dog will demonstrate.</p>
           <p className="mt-2 text-neutral-500">Workout: <strong className="text-neutral-900">{selectedWorkout ? selectedWorkout.label : "Not selected"}</strong></p>
-          <p className="mt-1 text-neutral-500">Trainer: <strong className="text-neutral-900">{selectedTrainer ? selectedTrainer.name : "Not selected"}</strong></p>
+          <p className="mt-1 text-neutral-500">Intensity: <strong className="text-neutral-900">{selectedTrainer ? selectedTrainer.name : "Not selected"}</strong></p>
           <p className="mt-1 text-neutral-500">Planned moves:</p>
           <ul className="mt-1 ml-5 list-disc text-neutral-500 space-y-0.5">
             {workoutMoves.map((move) => (

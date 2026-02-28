@@ -26,6 +26,27 @@ ACTION_REGISTRY: dict[str, tuple[str, tuple, dict]] = {
     "stop_move":      ("StopMove", (), {}),
 }
 
+# Tags for UI/filtering: lower_body, chest, full_body, dance (each action can have multiple)
+MOVEMENT_TAGS: dict[str, list[str]] = {
+    "stand_up":       ["chest", "full_body"],
+    "stand_down":     ["lower_body", "full_body"],
+    "balance_stand":  ["chest", "full_body"],
+    "recovery_stand": ["full_body"],
+    "sit":            ["lower_body", "full_body"],
+    "hello":          ["chest"],
+    "stretch":        ["lower_body", "full_body"],
+    "dance1":         ["dance"],
+    "dance2":         ["dance"],
+    "heart":          ["chest", "dance"],
+    "front_flip":     ["full_body"],
+    "front_jump":     ["lower_body", "full_body"],
+    "back_flip":      ["full_body"],
+    "left_flip":      ["full_body"],
+    "hand_stand":     ["chest", "full_body"],
+    "damp":           ["full_body"],
+    "stop_move":      ["full_body"],
+}
+
 
 def make_request(cmd: str, params: dict[str, Any] | None = None) -> bytes:
     """Encode a command request as JSON bytes."""

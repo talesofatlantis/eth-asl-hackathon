@@ -9,7 +9,7 @@ import threading
 import zmq
 
 from . import config
-from .protocol import ACTION_REGISTRY, make_response, parse_request
+from .protocol import ACTION_REGISTRY, MOVEMENT_TAGS, make_response, parse_request
 
 log = logging.getLogger(__name__)
 
@@ -126,7 +126,9 @@ class CommandHandler:
             return make_response(False, str(exc))
 
     def _handle_list_actions(self) -> bytes:
-        return make_response(True, "actions", {"actions": list(ACTION_REGISTRY.keys())})
+        actions = list(ACTION_REGISTRY.keys())
+        tags = {name: MOVEMENT_TAGS.get(name, []) for name in actions}
+        return make_response(True, "actions", {"actions": actions, "tags": tags})
 
     def _handle_status(self) -> bytes:
         return make_response(True, "ok", {
