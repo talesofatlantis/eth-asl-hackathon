@@ -6,12 +6,14 @@ import asyncio
 import json
 import logging
 import os
+import re
 from pathlib import Path
 
 import uvicorn
 import zmq
 import zmq.asyncio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from openai import OpenAI
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.requests import Request
@@ -21,6 +23,8 @@ CMD_PORT = int(os.getenv("GO2_ZMQ_CMD_PORT", "5555"))
 PUB_PORT = int(os.getenv("GO2_ZMQ_PUB_PORT", "5556"))
 WEBAPP_HOST = os.getenv("GO2_WEBAPP_HOST", "0.0.0.0")
 WEBAPP_PORT = int(os.getenv("GO2_WEBAPP_PORT", "8080"))
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("go2_webapp")
@@ -32,6 +36,26 @@ STATIC_DIR = Path(__file__).parent / "static"
 # ── ZMQ helpers ───────────────────────────────────────────────────
 
 _zmq_ctx: zmq.asyncio.Context | None = None
+
+ALLOWED_MOVES = [
+    "stand_up",
+    "stand_down",
+    "balance_stand",
+    "recovery_stand",
+    "sit",
+    "hello",
+    "stretch",
+    "dance1",
+    "dance2",
+    "heart",
+    "front_flip",
+    "front_jump",
+    "back_flip",
+    "left_flip",
+    "hand_stand",
+    "damp",
+    "stop_move",
+]
 
 
 def get_zmq_ctx() -> zmq.asyncio.Context:
@@ -65,6 +89,125 @@ async def api_command(request: Request):
     params = body.get("params")
     resp = await bridge_command(cmd, params)
     return JSONResponse(content=resp)
+
+
+def _build_custom_workout_from_prompt(user_prompt: str) -> dict:
+    client = OpenAI(
+        api_key=GEMINI_API_KEY,
+        base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+    )
+
+    system_prompt = (
+        "You create safe, concise robot-dog workouts from user intent. "
+        "Return ONLY JSON with keys: title (string), reason (string), moves (array of 5 strings). "
+        "Each move must be chosen only from this list: "
+        + ", ".join(ALLOWED_MOVES)
+        + "."
+    )
+    user_content = f"User workout request: {user_prompt}"
+    response = client.chat.completions.create(
+        model=GEMINI_MODEL,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_content},
+        ],
+        temperature=0.4,
+    )
+    content = (response.choices[0].message.content or "").strip()
+
+    def parse_model_json(raw: str) -> dict:
+        if not raw:
+            raise ValueError(
+                "Gemini returned an empty response. Try again or adjust GEMINI_MODEL."
+            )
+
+        # Try raw JSON first.
+        try:
+            parsed_obj = json.loads(raw)
+            if isinstance(parsed_obj, dict):
+                return parsed_obj
+        except Exception:
+            pass
+
+        # Try fenced JSON blocks.
+        fenced = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", raw, re.IGNORECASE)
+        if fenced:
+            try:
+                parsed_obj = json.loads(fenced.group(1).strip())
+                if isinstance(parsed_obj, dict):
+                    return parsed_obj
+            except Exception:
+                pass
+
+        # Try first JSON object in free-form text.
+        first_brace = raw.find("{")
+        last_brace = raw.rfind("}")
+        if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+            candidate = raw[first_brace : last_brace + 1]
+            try:
+                parsed_obj = json.loads(candidate)
+                if isinstance(parsed_obj, dict):
+                    return parsed_obj
+            except Exception:
+                pass
+
+        raise ValueError(
+            "Gemini did not return valid JSON for custom workout generation."
+        )
+
+    parsed = parse_model_json(content)
+
+    title = str(parsed.get("title", "Custom Workout")).strip() or "Custom Workout"
+    reason = str(parsed.get("reason", "")).strip()
+    moves_raw = parsed.get("moves", [])
+    if not isinstance(moves_raw, list):
+        moves_raw = []
+    moves: list[str] = []
+    for item in moves_raw:
+        name = str(item).strip()
+        if name in ALLOWED_MOVES and name not in moves:
+            moves.append(name)
+        if len(moves) >= 5:
+            break
+    if len(moves) < 5:
+        for fallback in ["stand_up", "stretch", "hello", "balance_stand", "stop_move"]:
+            if fallback not in moves:
+                moves.append(fallback)
+            if len(moves) >= 5:
+                break
+
+    return {
+        "id": "custom-workout",
+        "label": "Custom Workout",
+        "exerciseName": title,
+        "moves": moves[:5],
+        "reason": reason,
+    }
+
+
+@app.post("/api/custom_workout")
+async def api_custom_workout(request: Request):
+    body = await request.json()
+    user_prompt = str(body.get("prompt", "")).strip()
+    if not user_prompt:
+        return JSONResponse(content={"ok": False, "msg": "Missing prompt"}, status_code=400)
+    if not GEMINI_API_KEY:
+        return JSONResponse(
+            content={"ok": False, "msg": "GEMINI_API_KEY is not set on server"},
+            status_code=500,
+        )
+    try:
+        workout = await asyncio.to_thread(_build_custom_workout_from_prompt, user_prompt)
+        return JSONResponse(content={"ok": True, "workout": workout})
+    except Exception as exc:
+        log.exception("custom workout generation failed")
+        error_msg = str(exc)
+        if "no longer available" in error_msg.lower() or "not_found" in error_msg.lower():
+            error_msg = (
+                f"Gemini model '{GEMINI_MODEL}' is unavailable. "
+                "Set GEMINI_MODEL to a current model (for example: gemini-2.5-flash) and restart go2_webapp."
+            )
+        return JSONResponse(content={"ok": False, "msg": error_msg}, status_code=500)
 
 
 # ── WebSocket: camera stream ─────────────────────────────────────

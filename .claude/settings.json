@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "go2": {
+      "command": "/Users/wglaenzer/Documents/Robot-hackathon/go2/go2_py311/bin/python",
+      "args": ["-m", "go2_mcp"],
+      "cwd": "/Users/wglaenzer/Documents/Robot-hackathon/go2",
+      "env": {
+        "GO2_BRIDGE_HOST": "localhost",
+        "GO2_ZMQ_CMD_PORT": "5555",
+        "GO2_ZMQ_PUB_PORT": "5556"
+      }
+    }
+  }
+}

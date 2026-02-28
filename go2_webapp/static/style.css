@@ -137,6 +137,31 @@ body {
   margin-top: 2px;
 }
 
+.custom-input {
+  width: 100%;
+  min-height: 110px;
+  margin-top: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(183, 210, 242, 0.45);
+  background: rgba(9, 21, 39, 0.6);
+  color: #e8f1ff;
+  padding: 10px;
+  font: inherit;
+}
+
+.custom-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.custom-actions .secondary-btn,
+.custom-actions .primary-btn {
+  margin: 0;
+  display: inline-block;
+}
+
 .countdown-circle {
   width: 160px;
   aspect-ratio: 1 / 1;
@@ -167,6 +192,12 @@ body {
   margin-top: 8px;
   color: #e8f1ff;
   font-size: 1.05rem;
+}
+
+.next-exercise-line {
+  margin-top: 4px;
+  color: #c9dbf5;
+  font-size: 0.98rem;
 }
 
 .camera-panel {
@@ -206,6 +237,85 @@ body {
   font-size: 1.1rem;
 }
 
+.control-panel {
+  background: rgba(5, 16, 32, 0.5);
+  border: 1px solid rgba(183, 210, 242, 0.35);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.control-title {
+  color: #dbe8fa;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.autoplay-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: #dbe8fa;
+  font-size: 0.95rem;
+}
+
+.control-actions,
+.nudge-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.control-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 8px;
+  cursor: pointer;
+  font-weight: 700;
+  color: #0f1f34;
+  background: #f1f7ff;
+}
+
+.control-stop {
+  background: #ff8585;
+}
+
+.robot-status {
+  color: #c9dbf5;
+  font-size: 0.9rem;
+}
+
+.voice-note {
+  color: #b7cdeb;
+  font-size: 0.82rem;
+  margin-bottom: 8px;
+}
+
+.voice-troubleshoot {
+  text-align: left;
+  max-width: 360px;
+  margin-top: 12px;
+}
+.voice-troubleshoot summary {
+  cursor: pointer;
+  color: #8ab4f8;
+  font-size: 0.9rem;
+}
+.voice-troubleshoot ul {
+  margin-top: 8px;
+  padding-left: 20px;
+  color: #c7d6ec;
+  font-size: 0.85rem;
+}
+.voice-troubleshoot li {
+  margin-bottom: 6px;
+}
+
+.voice-test-btn {
+  margin-bottom: 10px;
+}
+
 @media (max-width: 850px) {
   .tile-grid {
     grid-template-columns: 1fr;
@@ -219,5 +329,10 @@ body {
   .camera-panel img,
   .no-feed {
     min-height: 300px;
+  }
+
+  .control-actions,
+  .nudge-grid {
+    grid-template-columns: 1fr 1fr;
   }
 }
