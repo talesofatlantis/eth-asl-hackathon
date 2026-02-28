@@ -4,7 +4,7 @@ const MOVE_DURATION_SECONDS = 20;
 const DEFAULT_WORKOUTS = [
   {
     id: "yoga-relax",
-    label: "Yoga & Relax",
+    label: "Relax?",
     exerciseName: "Gentle Yoga Flow",
     moves: ["stretch", "hello", "sit", "stand_up", "heart"],
   },
@@ -262,21 +262,29 @@ function App() {
     setStep("start");
   };
 
-  const screenBase = "min-h-screen max-w-4xl mx-auto px-6 py-12 md:py-16";
-  const tileClass = "rounded-2xl min-h-[160px] px-6 py-5 text-left text-lg md:text-xl font-semibold text-neutral-900 bg-white border border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50 transition-colors duration-200 cursor-pointer";
+  const screenBase = "min-h-screen max-w-4xl mx-auto px-8 md:px-10 py-12 md:py-16";
+  const tileClass = "rounded-sm aspect-[3/4] min-h-[200px] px-6 py-5 text-left text-lg md:text-xl font-semibold text-neutral-900 bg-white border border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50 transition-colors duration-200 cursor-pointer";
 
   if (step === "start") {
     return (
-      <div className={`${screenBase} flex flex-col justify-center items-center gap-8`}>
-        <h1 className="font-heading text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-neutral-900">ROBOGYM</h1>
-        <p className="text-neutral-500 text-base md:text-lg text-center max-w-md">Train with your robot dog coach</p>
-        <button
-          className="rounded-full px-8 py-3.5 bg-black hover:bg-neutral-800 text-white font-semibold text-sm transition-colors"
-          onClick={() => setStep("workout-select")}
-        >
-          Start Workout
-        </button>
-        <div className="w-full max-w-lg mt-4 p-6 bg-white border border-neutral-200 rounded-2xl">
+      <div className={`${screenBase} pt-24`}>
+        <h1 className="font-heading text-xl md:text-2xl font-bold tracking-tight text-neutral-900 fixed top-0 left-0 p-6 md:p-8 z-10">ROBOGYM</h1>
+        <p className="text-neutral-500 text-base mb-6">Train with your robot dog coach</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-10">
+          {WORKOUTS.map((workout) => (
+            <button
+              key={workout.id}
+              className={tileClass}
+              onClick={() => {
+                setSelectedWorkout(workout);
+                setStep("trainer-select");
+              }}
+            >
+              {workout.label}
+            </button>
+          ))}
+        </div>
+        <div className="w-full max-w-lg p-6 bg-white border border-neutral-200 rounded-2xl">
           <h3 className="font-heading text-base font-semibold text-neutral-900 mb-3">AI Coach (Gemini)</h3>
           {agentAvailable === false && (
             <p className="text-sm text-neutral-500">
@@ -355,28 +363,6 @@ function App() {
     );
   }
 
-  if (step === "workout-select") {
-    return (
-      <div className={screenBase}>
-        <h2 className="font-heading text-center mb-10 text-2xl md:text-3xl font-bold tracking-tight text-neutral-900">Select Your Workout</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-          {WORKOUTS.map((workout) => (
-            <button
-              key={workout.id}
-              className={tileClass}
-              onClick={() => {
-                setSelectedWorkout(workout);
-                setStep("trainer-select");
-              }}
-            >
-              {workout.label}
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   if (step === "trainer-select") {
     return (
       <div className={screenBase}>
@@ -398,7 +384,7 @@ function App() {
         </div>
         <button
           className="mt-10 mx-auto block rounded-full px-8 py-3.5 bg-black hover:bg-neutral-800 text-white font-semibold text-sm transition-colors"
-          onClick={() => setStep("workout-select")}
+          onClick={() => setStep("start")}
         >
           Back
         </button>
