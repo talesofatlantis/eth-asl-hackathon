@@ -7,7 +7,7 @@ window.ROBOGYM_VOICE_CONFIG = {
     simpleVoiceTestPrompt: "This is a simple voice test from Robogym.",
     workoutSelectPrompt: "Choose your workout.",
     customWorkoutPrompt: "Describe your goal. Then generate your custom workout.",
-    trainerSelectPrompt: "Choose your coach.",
+    trainerSelectPrompt: "Choose your intensity.",
     instructionsPrompt:
       "{{trainerIntro}} {{workoutIntro}} Follow the voice instructions, and the dog will demonstrate.",
     completionPrompt: "Workout complete. Congratulations.",
@@ -16,26 +16,26 @@ window.ROBOGYM_VOICE_CONFIG = {
     workoutIntroFallback: "Today we are doing {{workoutName}}.",
   },
   trainers: {
-    "coach-rio": {
-      intro: "{{trainerName}} here. Stay calm and controlled.",
+    "intensity-low": {
+      intro: "Low intensity. Stay calm and controlled.",
       moveLine:
         "Breathe and focus. Now: {{current}}. Next: {{next}} in {{seconds}} seconds.",
       completionLine:
-        "Great control today. Congratulations, workout complete with {{trainerName}}.",
+        "Great control today. Workout complete.",
     },
-    "captain-nova": {
-      intro: "{{trainerName}} here. Let's go, you've got this.",
+    "intensity-medium": {
+      intro: "Medium intensity. Let's go, you've got this.",
       moveLine:
-        "Energy up. Now: {{current}}. Next: {{next}} in {{seconds}} seconds.",
+        "Steady pace. Now: {{current}}. Next: {{next}} in {{seconds}} seconds.",
       completionLine:
-        "Boom. You crushed it. Congratulations from {{trainerName}}.",
+        "Nice work. Workout complete.",
     },
-    "dr-blaze": {
-      intro: "Hi, I'm {{trainerName}}. Time to push hard.",
+    "intensity-high": {
+      intro: "High intensity. Time to push hard.",
       moveLine:
         "Intensity on. Now: {{current}}. Next: {{next}} in {{seconds}} seconds. Stay strong.",
       completionLine:
-        "Outstanding effort. Workout complete with {{trainerName}}. Respect.",
+        "Outstanding effort. Workout complete.",
     },
   },
   workouts: {

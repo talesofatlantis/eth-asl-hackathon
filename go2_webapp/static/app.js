@@ -27,13 +27,13 @@ const DEFAULT_WORKOUTS = [
 const WORKOUTS = Array.isArray(window.ROBOGYM_WORKOUTS) ? window.ROBOGYM_WORKOUTS : DEFAULT_WORKOUTS;
 
 /** Third card on start screen: generates a custom workout via API (no predefined moves). */
-const CREATIVE_MODE = { id: "creative", label: "Creator", exerciseName: "Custom", moves: [] };
+const CREATIVE_MODE = { id: "creative", label: "Creator Mode", exerciseName: "Custom", moves: [] };
 const START_MODES = [...WORKOUTS.slice(0, 2), CREATIVE_MODE];
 
 const TRAINERS = [
-  { id: "coach-rio", name: "Coach Rio", tagline: "Calm and focused" },
-  { id: "captain-nova", name: "Captain Nova", tagline: "Energetic and motivating" },
-  { id: "dr-blaze", name: "Dr. Blaze", tagline: "High-intensity challenge" },
+  { id: "intensity-low", name: "Low", tagline: "Gentle pace" },
+  { id: "intensity-medium", name: "Medium", tagline: "Moderate effort" },
+  { id: "intensity-high", name: "High", tagline: "High intensity" },
 ];
 
 const DEFAULT_VOICE_CONFIG = {
@@ -269,8 +269,12 @@ function App() {
 
   const workoutMoves = useMemo(() => {
     if (!selectedWorkout || !Array.isArray(selectedWorkout.moves)) return [];
-    return selectedWorkout.moves;
-  }, [selectedWorkout]);
+    const base = selectedWorkout.moves;
+    const multiplier = !selectedTrainer ? 1 : selectedTrainer.id === "intensity-low" ? 1 : selectedTrainer.id === "intensity-medium" ? 2 : 3;
+    const out = [];
+    for (let i = 0; i < multiplier; i++) out.push(...base);
+    return out;
+  }, [selectedWorkout, selectedTrainer]);
 
   useEffect(() => {
     if (step !== "workout") return;
@@ -416,7 +420,7 @@ function App() {
                   {workout.label}
                 </h2>
                 {workout.id === "creative" && (
-                  <p className="mt-2 text-sm text-neutral-300 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  <p className="absolute bottom-12 left-5 right-5 text-sm text-neutral-300 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
                     Create your own routine.
                   </p>
                 )}
@@ -591,24 +595,24 @@ function App() {
   if (step === "trainer-select") {
     return (
       <div className={`${screenBase} flex min-h-screen flex-col items-center justify-center`}>
-        <h2 className="font-heading text-center mb-10 text-2xl md:text-3xl font-bold tracking-tight text-neutral-900">Select Your Trainer</h2>
+        <h2 className="font-heading text-center mb-10 text-2xl md:text-3xl font-bold tracking-tight text-neutral-900">Select Intensity</h2>
         <div className="flex w-full flex-1 items-center justify-center">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 w-full max-w-3xl mx-auto">
           {TRAINERS.map((trainer) => (
             <button
               key={trainer.id}
               type="button"
-              className={`${cardBaseClass} aspect-[3/4] min-h-[200px] hover:border-neutral-400 hover:shadow-md active:scale-[0.98] flex flex-col justify-end items-start`}
+              className={`${cardBaseClass} aspect-[3/4] min-h-[200px] hover:border-neutral-400 hover:shadow-md active:scale-[0.98]`}
               onClick={() => {
                 setSelectedTrainer(trainer);
                 setStep("instructions");
               }}
             >
-              <div className="absolute inset-0 bg-gradient-to-b from-neutral-600 to-neutral-800 transition-transform duration-500 ease-in-out group-hover:scale-105" />
+              <div className="absolute inset-0 bg-gradient-to-b from-neutral-700 to-neutral-900 transition-transform duration-500 ease-in-out group-hover:scale-105" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-              <div className="relative z-10 p-5 text-white transition-transform duration-300 ease-in-out group-hover:-translate-y-1">
-                <p className="text-xs font-medium uppercase tracking-wider text-neutral-300">Coach</p>
-                <h2 className="mt-1 font-heading text-xl font-bold leading-tight tracking-tight text-white md:text-2xl">
+              <div className="relative z-10 flex h-full flex-col justify-end items-center text-center p-5 text-white transition-transform duration-300 ease-in-out group-hover:-translate-y-1">
+                <p className="text-xs font-medium uppercase tracking-wider text-neutral-300">Intensity</p>
+                <h2 className="mt-1 text-xl font-bold leading-tight tracking-tight text-white md:text-2xl">
                   {trainer.name}
                 </h2>
                 <span className="mt-1.5 block text-sm font-medium text-neutral-400">{trainer.tagline}</span>
@@ -635,7 +639,7 @@ function App() {
           <p>1. Follow the voice instructions.</p>
           <p>2. The dog will demonstrate.</p>
           <p className="mt-2 text-neutral-500">Workout: <strong className="text-neutral-900">{selectedWorkout ? selectedWorkout.label : "Not selected"}</strong></p>
-          <p className="mt-1 text-neutral-500">Trainer: <strong className="text-neutral-900">{selectedTrainer ? selectedTrainer.name : "Not selected"}</strong></p>
+          <p className="mt-1 text-neutral-500">Intensity: <strong className="text-neutral-900">{selectedTrainer ? selectedTrainer.name : "Not selected"}</strong></p>
           <p className="mt-1 text-neutral-500">Planned moves:</p>
           <ul className="mt-1 ml-5 list-disc text-neutral-500 space-y-0.5">
             {workoutMoves.map((move) => (
