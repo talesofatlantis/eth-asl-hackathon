@@ -419,11 +419,6 @@ function App() {
                 <h2 className="mt-1 text-xl font-bold leading-tight tracking-tight text-white md:text-2xl">
                   {workout.label}
                 </h2>
-                {workout.id === "creative" && (
-                  <p className="absolute bottom-12 left-5 right-5 text-sm text-neutral-300 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
-                    Create your own routine.
-                  </p>
-                )}
               </div>
             </button>
           ))}
