@@ -1,243 +1,307 @@
-/* Go2 Web Controller — vanilla JS */
+const { useEffect, useMemo, useState } = React;
+const MOVE_DURATION_SECONDS = 20;
 
-const SPEED_MULT = [0.3, 0.6, 1.0]; // speed levels 1-3
-
-// ── DOM refs ─────────────────────────────────────────────────────
-
-const cameraImg   = document.getElementById("camera-img");
-const noFeed      = document.getElementById("no-feed");
-const btnStop     = document.getElementById("btn-stop");
-const btnMoveStop = document.getElementById("btn-move-stop");
-const actionsGrid = document.getElementById("actions-grid");
-const logEl       = document.getElementById("log");
-const oaToggle    = document.getElementById("oa-toggle");
-const speedSelect = document.getElementById("speed-select");
-const lightToggle = document.getElementById("light-toggle");
-const connStatus  = document.getElementById("conn-status");
-
-// ── Logging ──────────────────────────────────────────────────────
-
-function log(msg) {
-  const line = document.createElement("div");
-  line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-  logEl.appendChild(line);
-  logEl.scrollTop = logEl.scrollHeight;
-}
-
-// ── API helper ───────────────────────────────────────────────────
-
-async function sendCmd(cmd, params) {
-  try {
-    const body = { cmd };
-    if (params) body.params = params;
-    const resp = await fetch("/api/command", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const data = await resp.json();
-    log(`${cmd}: ${data.msg}`);
-    return data;
-  } catch (err) {
-    log(`ERROR: ${err.message}`);
-    return null;
-  }
-}
-
-// ── Camera WebSocket ─────────────────────────────────────────────
-
-let cameraWs = null;
-let blobUrl = null;
-
-function connectCamera() {
-  const proto = location.protocol === "https:" ? "wss:" : "ws:";
-  cameraWs = new WebSocket(`${proto}//${location.host}/ws/camera`);
-  cameraWs.binaryType = "arraybuffer";
-
-  cameraWs.onopen = () => {
-    connStatus.textContent = "Connected";
-    connStatus.style.color = "#4caf50";
-    log("Camera connected");
-  };
-
-  cameraWs.onmessage = (ev) => {
-    if (blobUrl) URL.revokeObjectURL(blobUrl);
-    const blob = new Blob([ev.data], { type: "image/jpeg" });
-    blobUrl = URL.createObjectURL(blob);
-    cameraImg.src = blobUrl;
-    cameraImg.style.display = "block";
-    noFeed.style.display = "none";
-  };
-
-  cameraWs.onclose = () => {
-    connStatus.textContent = "Disconnected";
-    connStatus.style.color = "#e53935";
-    cameraImg.style.display = "none";
-    noFeed.style.display = "flex";
-    log("Camera disconnected — reconnecting in 2s");
-    setTimeout(connectCamera, 2000);
-  };
-
-  cameraWs.onerror = () => cameraWs.close();
-}
-
-connectCamera();
-
-// ── Stop button ──────────────────────────────────────────────────
-
-btnStop.addEventListener("click", () => sendCmd("stop"));
-btnMoveStop.addEventListener("click", () => sendCmd("stop"));
-
-// ── Obstacle avoidance toggle ────────────────────────────────────
-
-oaToggle.addEventListener("change", () => {
-  sendCmd("obstacle_avoidance", { enabled: oaToggle.checked });
-});
-
-// ── Light toggle ─────────────────────────────────────────────────
-
-lightToggle.addEventListener("change", () => {
-  sendCmd("light", { on: lightToggle.checked });
-});
-
-// ── Speed level ──────────────────────────────────────────────────
-
-speedSelect.addEventListener("change", () => {
-  sendCmd("speed_level", { level: parseInt(speedSelect.value) });
-});
-
-// ── Actions grid ─────────────────────────────────────────────────
-
-const ACTIONS = [
-  "stand_up", "stand_down", "balance_stand", "recovery_stand",
-  "sit", "hello", "stretch", "dance1", "dance2", "heart",
-  "front_flip", "front_jump", "back_flip", "left_flip",
-  "hand_stand", "damp", "stop_move",
+const DEFAULT_WORKOUTS = [
+  {
+    id: "yoga-relax",
+    label: "Yoga & Relax",
+    exerciseName: "Gentle Yoga Flow",
+    moves: ["stretch", "hello", "sit", "stand_up", "heart"],
+  },
+  {
+    id: "full-body",
+    label: "Full Body",
+    exerciseName: "Full Body Activation",
+    moves: ["stand_up", "balance_stand", "front_jump", "recovery_stand", "stop_move"],
+  },
+  {
+    id: "hardcode",
+    label: "Hardcode",
+    exerciseName: "Hardcode Power Set",
+    moves: ["dance1", "dance2", "front_flip", "back_flip", "left_flip", "hand_stand"],
+  },
 ];
 
-ACTIONS.forEach((name) => {
-  const btn = document.createElement("button");
-  btn.textContent = name.replace(/_/g, " ");
-  btn.addEventListener("click", () => sendCmd("action", { name }));
-  actionsGrid.appendChild(btn);
-});
+const WORKOUTS = Array.isArray(window.ROBOGYM_WORKOUTS) ? window.ROBOGYM_WORKOUTS : DEFAULT_WORKOUTS;
 
-// ── Movement: on-screen buttons ──────────────────────────────────
+const TRAINERS = [
+  { id: "coach-rio", name: "Coach Rio", tagline: "Calm and focused" },
+  { id: "captain-nova", name: "Captain Nova", tagline: "Energetic and motivating" },
+  { id: "dr-blaze", name: "Dr. Blaze", tagline: "High-intensity challenge" },
+];
 
-let moveInterval = null;
-let activeVx = 0, activeVy = 0, activeVyaw = 0;
+function CameraFeed() {
+  const [imageUrl, setImageUrl] = useState("");
+  const [status, setStatus] = useState("Connecting...");
 
-function getSpeedMult() {
-  return SPEED_MULT[parseInt(speedSelect.value) - 1] || 0.3;
+  useEffect(() => {
+    let ws;
+    let reconnectTimer = null;
+    let currentBlobUrl = "";
+    let isUnmounted = false;
+    const reconnectDelayMs = 1500;
+
+    const scheduleReconnect = () => {
+      if (isUnmounted) return;
+      setStatus("Camera unavailable - workout continues. Reconnecting...");
+      reconnectTimer = setTimeout(connect, reconnectDelayMs);
+    };
+
+    const connect = () => {
+      try {
+        const proto = location.protocol === "https:" ? "wss:" : "ws:";
+        ws = new WebSocket(`${proto}//${location.host}/ws/camera`);
+      } catch (err) {
+        console.error("Camera websocket setup failed:", err);
+        scheduleReconnect();
+        return;
+      }
+      ws.binaryType = "arraybuffer";
+
+      ws.onopen = () => {
+        if (!isUnmounted) setStatus("Connected");
+      };
+
+      ws.onmessage = (ev) => {
+        if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+        const blob = new Blob([ev.data], { type: "image/jpeg" });
+        currentBlobUrl = URL.createObjectURL(blob);
+        if (!isUnmounted) setImageUrl(currentBlobUrl);
+      };
+
+      ws.onclose = () => {
+        if (isUnmounted) return;
+        scheduleReconnect();
+      };
+
+      ws.onerror = () => {
+        ws.close();
+      };
+    };
+
+    connect();
+
+    return () => {
+      isUnmounted = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (ws && ws.readyState <= 1) ws.close();
+      if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+    };
+  }, []);
+
+  return (
+    <div className="camera-panel">
+      <div className="camera-status">{status}</div>
+      {imageUrl ? (
+        <img src={imageUrl} alt="Robot dog camera feed" />
+      ) : (
+        <div className="no-feed">
+          Waiting for robot camera feed...
+        </div>
+      )}
+    </div>
+  );
 }
 
-function startMove(vx, vy, vyaw) {
-  stopMove();
-  const m = getSpeedMult();
-  activeVx = vx * m;
-  activeVy = vy * m;
-  activeVyaw = vyaw * m;
-  sendCmd("move", { vx: activeVx, vy: activeVy, vyaw: activeVyaw });
-  moveInterval = setInterval(() => {
-    sendCmd("move", { vx: activeVx, vy: activeVy, vyaw: activeVyaw });
-  }, 100); // 10 Hz
-}
+function App() {
+  const [step, setStep] = useState("start");
+  const [selectedWorkout, setSelectedWorkout] = useState(null);
+  const [selectedTrainer, setSelectedTrainer] = useState(null);
+  const [countdownValue, setCountdownValue] = useState(3);
+  const [workoutStartedAtMs, setWorkoutStartedAtMs] = useState(null);
+  const [clockMs, setClockMs] = useState(Date.now());
 
-function stopMove() {
-  if (moveInterval) {
-    clearInterval(moveInterval);
-    moveInterval = null;
-  }
-  activeVx = activeVy = activeVyaw = 0;
-}
-
-// Bind move-pad and rotate-row buttons
-document.querySelectorAll(".move-pad button[data-vx], .rotate-row button[data-vx]").forEach((btn) => {
-  const vx = parseFloat(btn.dataset.vx);
-  const vy = parseFloat(btn.dataset.vy);
-  const vyaw = parseFloat(btn.dataset.vyaw);
-
-  function down(e) { e.preventDefault(); btn.classList.add("active"); startMove(vx, vy, vyaw); }
-  function up(e)   { e.preventDefault(); btn.classList.remove("active"); stopMove(); sendCmd("stop"); }
-
-  btn.addEventListener("mousedown", down);
-  btn.addEventListener("mouseup", up);
-  btn.addEventListener("mouseleave", up);
-  btn.addEventListener("touchstart", down);
-  btn.addEventListener("touchend", up);
-  btn.addEventListener("touchcancel", up);
-});
-
-// ── Movement: keyboard ───────────────────────────────────────────
-
-const KEY_MAP = {
-  w: { vx: 1, vy: 0, vyaw: 0 },
-  s: { vx: -1, vy: 0, vyaw: 0 },
-  a: { vx: 0, vy: 1, vyaw: 0 },
-  d: { vx: 0, vy: -1, vyaw: 0 },
-  q: { vx: 0, vy: 0, vyaw: 1 },
-  e: { vx: 0, vy: 0, vyaw: -1 },
-};
-
-const pressedKeys = new Set();
-
-document.addEventListener("keydown", (ev) => {
-  const key = ev.key.toLowerCase();
-  if (key === " ") { sendCmd("stop"); return; }
-  if (!KEY_MAP[key] || pressedKeys.has(key)) return;
-  pressedKeys.add(key);
-  updateKeyboardMove();
-});
-
-document.addEventListener("keyup", (ev) => {
-  const key = ev.key.toLowerCase();
-  if (!KEY_MAP[key]) return;
-  pressedKeys.delete(key);
-  updateKeyboardMove();
-});
-
-let keyMoveInterval = null;
-
-function updateKeyboardMove() {
-  if (pressedKeys.size === 0) {
-    if (keyMoveInterval) {
-      clearInterval(keyMoveInterval);
-      keyMoveInterval = null;
+  useEffect(() => {
+    if (step !== "countdown") return;
+    if (countdownValue === 0) {
+      setStep("workout");
+      return;
     }
-    sendCmd("stop");
-    return;
+    const timer = setTimeout(() => {
+      setCountdownValue((prev) => prev - 1);
+    }, 900);
+    return () => clearTimeout(timer);
+  }, [step, countdownValue]);
+
+  const workoutTitle = useMemo(() => {
+    if (!selectedWorkout) return "Workout";
+    return selectedWorkout.exerciseName;
+  }, [selectedWorkout]);
+
+  const workoutMoves = useMemo(() => {
+    if (!selectedWorkout || !Array.isArray(selectedWorkout.moves)) return [];
+    return selectedWorkout.moves;
+  }, [selectedWorkout]);
+
+  useEffect(() => {
+    if (step !== "workout") return;
+    const startedAt = Date.now();
+    setWorkoutStartedAtMs(startedAt);
+    setClockMs(startedAt);
+  }, [step, selectedWorkout]);
+
+  useEffect(() => {
+    if (step !== "workout") return;
+    const timer = setInterval(() => {
+      setClockMs(Date.now());
+    }, 500);
+
+    return () => clearInterval(timer);
+  }, [step]);
+
+  const elapsedSeconds = useMemo(() => {
+    if (step !== "workout" || !workoutStartedAtMs) return 0;
+    return Math.max(0, Math.floor((clockMs - workoutStartedAtMs) / 1000));
+  }, [step, workoutStartedAtMs, clockMs]);
+
+  const currentMoveIndex = useMemo(() => {
+    if (workoutMoves.length === 0) return 0;
+    return Math.floor(elapsedSeconds / MOVE_DURATION_SECONDS) % workoutMoves.length;
+  }, [workoutMoves, elapsedSeconds]);
+
+  const moveSecondsLeft = useMemo(() => {
+    if (workoutMoves.length === 0) return MOVE_DURATION_SECONDS;
+    const secondsIntoMove = elapsedSeconds % MOVE_DURATION_SECONDS;
+    return MOVE_DURATION_SECONDS - secondsIntoMove;
+  }, [workoutMoves, elapsedSeconds]);
+
+  const currentMove = useMemo(() => {
+    if (workoutMoves.length === 0) return "No move selected";
+    return workoutMoves[currentMoveIndex] || workoutMoves[0];
+  }, [workoutMoves, currentMoveIndex]);
+
+  const beginCountdown = () => {
+    setCountdownValue(3);
+    setStep("countdown");
+  };
+
+  const goToStart = () => {
+    setSelectedWorkout(null);
+    setSelectedTrainer(null);
+    setCountdownValue(3);
+    setWorkoutStartedAtMs(null);
+    setClockMs(Date.now());
+    setStep("start");
+  };
+
+  if (step === "start") {
+    return (
+      <div className="screen center-screen">
+        <h1 className="app-title">ROBOGYM</h1>
+        <p className="subtitle">Train with your robot dog coach</p>
+        <button className="primary-btn" onClick={() => setStep("workout-select")}>
+          Start Workout
+        </button>
+      </div>
+    );
   }
 
-  let vx = 0, vy = 0, vyaw = 0;
-  for (const key of pressedKeys) {
-    const m = KEY_MAP[key];
-    vx += m.vx;
-    vy += m.vy;
-    vyaw += m.vyaw;
+  if (step === "workout-select") {
+    return (
+      <div className="screen">
+        <h2 className="screen-title">Select Your Workout</h2>
+        <div className="tile-grid">
+          {WORKOUTS.map((workout) => (
+            <button
+              key={workout.id}
+              className="tile"
+              onClick={() => {
+                setSelectedWorkout(workout);
+                setStep("trainer-select");
+              }}
+            >
+              {workout.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
   }
-  // Clamp
-  vx = Math.max(-1, Math.min(1, vx));
-  vy = Math.max(-1, Math.min(1, vy));
-  vyaw = Math.max(-1, Math.min(1, vyaw));
 
-  const mult = getSpeedMult();
-  const fvx = vx * mult, fvy = vy * mult, fvyaw = vyaw * mult;
+  if (step === "trainer-select") {
+    return (
+      <div className="screen">
+        <h2 className="screen-title">Select Your Trainer</h2>
+        <div className="tile-grid">
+          {TRAINERS.map((trainer) => (
+            <button
+              key={trainer.id}
+              className="tile trainer-tile"
+              onClick={() => {
+                setSelectedTrainer(trainer);
+                setStep("instructions");
+              }}
+            >
+              <span className="tile-title">{trainer.name}</span>
+              <span className="tile-subtitle">{trainer.tagline}</span>
+            </button>
+          ))}
+        </div>
+        <button className="secondary-btn" onClick={() => setStep("workout-select")}>
+          Back
+        </button>
+      </div>
+    );
+  }
 
-  // Send immediately then at 10 Hz
-  sendCmd("move", { vx: fvx, vy: fvy, vyaw: fvyaw });
-  if (keyMoveInterval) clearInterval(keyMoveInterval);
-  keyMoveInterval = setInterval(() => {
-    sendCmd("move", { vx: fvx, vy: fvy, vyaw: fvyaw });
-  }, 100);
+  if (step === "instructions") {
+    return (
+      <div className="screen center-screen">
+        <h2 className="screen-title">Instructions</h2>
+        <div className="info-card">
+          <p>1. Follow the voice instructions.</p>
+          <p>2. The dog will demonstrate.</p>
+          <p className="meta-line">
+            Workout: <strong>{selectedWorkout ? selectedWorkout.label : "Not selected"}</strong>
+          </p>
+          <p className="meta-line">
+            Trainer: <strong>{selectedTrainer ? selectedTrainer.name : "Not selected"}</strong>
+          </p>
+          <p className="meta-line">
+            Planned moves:
+          </p>
+          <ul className="moves-list">
+            {workoutMoves.map((move) => (
+              <li key={move}>{move}</li>
+            ))}
+          </ul>
+        </div>
+        <button className="primary-btn" onClick={beginCountdown}>
+          Start in 3...
+        </button>
+      </div>
+    );
+  }
+
+  if (step === "countdown") {
+    return (
+      <div className="screen center-screen">
+        <h2 className="screen-title">Get Ready</h2>
+        <div className="countdown-circle">{countdownValue}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="screen workout-screen">
+      <div className="workout-header">
+        <h2 className="exercise-title">{workoutTitle}</h2>
+        <p className="subtitle">
+          {selectedTrainer ? selectedTrainer.name : "Trainer"} is guiding you
+        </p>
+        <p className="current-exercise-line">
+          Current exercise: <strong>{currentMove}</strong> ({moveSecondsLeft}s)
+        </p>
+        <p className="meta-line">
+          Moves in this workout: {workoutMoves.join(", ")}
+        </p>
+      </div>
+      <CameraFeed />
+      <button className="secondary-btn" onClick={goToStart}>
+        Back to Start
+      </button>
+    </div>
+  );
 }
 
-// ── Load initial status ──────────────────────────────────────────
-
-(async () => {
-  const resp = await sendCmd("status");
-  if (resp && resp.data) {
-    oaToggle.checked = resp.data.obstacle_avoidance;
-    lightToggle.checked = resp.data.light_on || false;
-    speedSelect.value = String(resp.data.speed_level || 1);
-  }
-})();
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
