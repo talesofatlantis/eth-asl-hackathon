@@ -146,6 +146,24 @@ mcp dev go2_mcp/server.py
 }
 ```
 
+### 5. Gemini CLI and MCP Chat
+
+Control the robot via Gemini API (text + vision, with optional agentic mode):
+
+```bash
+# Single-prompt CLI (uses dummy_state, no MCP)
+python go2_cli_gemini.py "stand up"
+python -m go2_gemini.cli "make a backflip"
+
+# MCP chat (interactive, connects to dummy_server or real go2_mcp)
+python -m go2_gemini --sim
+
+# Agentic mode: give a task, VLM runs autonomously until done
+python -m go2_gemini --sim --task "Stand up, do a dance, then sit down"
+```
+
+**Setup:** `pip install -r requirements_gemini.txt`, set `GEMINI_API_KEY` or `GOOGLE_API_KEY` in `.env`. For simulation, run `python go2_mcp/dummy_simulator.py` in another terminal to see effects.
+
 ## ZMQ Protocol
 
 ### Commands (REQ/REP — port 5555)

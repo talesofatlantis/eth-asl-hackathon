@@ -23,7 +23,15 @@ go2/
 │   └── static/          # Single-page UI (HTML + vanilla JS + CSS)
 ├── go2_mcp/             # MCP server (python -m go2_mcp)
 │   ├── server.py        # FastMCP tools → ZMQ bridge client
+│   ├── dummy_server.py  # Dummy MCP (no robot, uses dummy_state)
+│   ├── dummy_state.py   # Shared state for dummy + simulator
+│   ├── dummy_simulator.py  # ASCII viz of dummy state
 │   └── __main__.py      # Entry point (stdio transport)
+├── go2_gemini/          # Gemini CLI + MCP chat (python -m go2_gemini)
+│   ├── cli.py           # Single-prompt CLI (direct dummy_state)
+│   ├── chat.py          # MCP chat + agentic loop
+│   ├── mcp_client.py    # Shared MCP connection logic
+│   └── MCPs/            # MCP configs (Go2_MCP.json, Go2_MCP_simulator.json)
 ├── unitree_sdk2_python/  # Unitree SDK2 Python (clone, not committed)
 ├── go2_py311/           # Python 3.11 venv (not committed)
 ├── requirements_bridge.txt

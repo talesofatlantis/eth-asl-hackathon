@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "go2": {
+      "command": "{{PROJECT_ROOT}}/go2_py311/bin/python",
+      "args": ["-m", "go2_mcp.dummy_server"],
+      "cwd": "{{PROJECT_ROOT}}",
+      "trust": true
+    }
+  }
+}
