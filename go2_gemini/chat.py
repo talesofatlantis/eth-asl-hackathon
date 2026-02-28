@@ -33,7 +33,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 MCP_DIR = Path(__file__).parent / "MCPs"
 MCP_REAL_CONFIG = MCP_DIR / "Go2_MCP.json"
 MCP_SIM_CONFIG = MCP_DIR / "Go2_MCP_simulator.json"
-MODEL = "gemini-1.5-flash"
+MODEL = "gemini-2.5-flash"
 MAX_TOOL_CALLS = 10
 MAX_AGENT_STEPS = 50
 
