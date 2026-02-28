@@ -8,9 +8,19 @@ import logging
 import os
 from pathlib import Path
 
+# Load .env from project root so GEMINI_API_KEY (etc.) is available
+try:
+    from dotenv import load_dotenv
+    _env_path = Path(__file__).resolve().parent.parent / ".env"
+    load_dotenv(_env_path)
+    load_dotenv()  # also cwd
+except ImportError:
+    pass
+
 import uvicorn
 import zmq
 import zmq.asyncio
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -25,7 +35,23 @@ WEBAPP_PORT = int(os.getenv("GO2_WEBAPP_PORT", "8080"))
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("go2_webapp")
 
-app = FastAPI(title="Go2 Web Controller")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Start camera relay on startup, cancel on shutdown."""
+    camera_task = asyncio.create_task(camera_relay())
+    log.info("Go2 Web App started")
+    try:
+        yield
+    finally:
+        camera_task.cancel()
+        try:
+            await camera_task
+        except asyncio.CancelledError:
+            pass
+
+
+app = FastAPI(title="Go2 Web Controller", lifespan=lifespan)
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -65,6 +91,35 @@ async def api_command(request: Request):
     params = body.get("params")
     resp = await bridge_command(cmd, params)
     return JSONResponse(content=resp)
+
+
+# ── Agent (Gemini ADK) ────────────────────────────────────────────
+
+@app.get("/api/agent/status")
+async def agent_status():
+    """Return whether the Gemini ADK agent is available (GEMINI_API_KEY set and google-adk installed)."""
+    from go2_agent import is_agent_available
+    return JSONResponse(content={"available": is_agent_available()})
+
+
+@app.post("/api/agent/chat")
+async def agent_chat(request: Request):
+    """Send a message to the AI coach agent; it can control the robot via tools."""
+    from go2_agent import chat, is_agent_available
+    if not is_agent_available():
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "Agent not available",
+                "hint": "Add GEMINI_API_KEY (or GOOGLE_API_KEY) to .env at project root and install google-adk.",
+            },
+        )
+    body = await request.json()
+    message = body.get("message", "").strip()
+    if not message:
+        return JSONResponse(status_code=400, content={"error": "message is required"})
+    reply = await chat(message)
+    return JSONResponse(content={"reply": reply})
 
 
 # ── WebSocket: camera stream ─────────────────────────────────────
@@ -117,28 +172,6 @@ async def ws_camera(websocket: WebSocket):
     finally:
         camera_clients.discard(websocket)
         log.info("Camera WebSocket client disconnected (%d total)", len(camera_clients))
-
-
-# ── Startup / Shutdown ────────────────────────────────────────────
-
-_camera_task: asyncio.Task | None = None
-
-
-@app.on_event("startup")
-async def on_startup():
-    global _camera_task
-    _camera_task = asyncio.create_task(camera_relay())
-    log.info("Go2 Web App started")
-
-
-@app.on_event("shutdown")
-async def on_shutdown():
-    if _camera_task:
-        _camera_task.cancel()
-        try:
-            await _camera_task
-        except asyncio.CancelledError:
-            pass
 
 
 # ── Static files (must be last so it doesn't shadow API routes) ──

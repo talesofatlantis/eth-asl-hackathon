@@ -113,6 +113,77 @@ body {
   display: block;
 }
 
+.agent-panel {
+  width: min(520px, 95%);
+  margin-top: 28px;
+  padding: 18px;
+  background: rgba(5, 16, 32, 0.5);
+  border: 1px solid rgba(183, 210, 242, 0.3);
+  border-radius: 14px;
+}
+
+.agent-panel-title {
+  font-size: 1.1rem;
+  margin-bottom: 12px;
+  color: #c7d6ec;
+}
+
+.agent-unavailable {
+  font-size: 0.9rem;
+  color: #9eb4d2;
+}
+
+.agent-unavailable code {
+  background: rgba(0, 0, 0, 0.25);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.agent-input-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.agent-input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid #2d4869;
+  border-radius: 10px;
+  background: rgba(15, 30, 50, 0.6);
+  color: #f2f7ff;
+  font-size: 0.95rem;
+}
+
+.agent-input::placeholder {
+  color: #6b8ab0;
+}
+
+.agent-send-btn {
+  padding: 10px 18px;
+  border: none;
+  border-radius: 10px;
+  background: #ffce4a;
+  color: #1b2230;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.agent-send-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.agent-reply {
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #e8f1ff;
+  white-space: pre-wrap;
+}
+
 .info-card {
   width: min(540px, 95%);
   background: rgba(5, 16, 32, 0.4);

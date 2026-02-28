@@ -110,6 +110,17 @@ function App() {
   const [countdownValue, setCountdownValue] = useState(3);
   const [workoutStartedAtMs, setWorkoutStartedAtMs] = useState(null);
   const [clockMs, setClockMs] = useState(Date.now());
+  const [agentAvailable, setAgentAvailable] = useState(null);
+  const [agentMessage, setAgentMessage] = useState("");
+  const [agentReply, setAgentReply] = useState("");
+  const [agentLoading, setAgentLoading] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/agent/status")
+      .then((r) => r.json())
+      .then((d) => setAgentAvailable(d.available === true))
+      .catch(() => setAgentAvailable(false));
+  }, []);
 
   useEffect(() => {
     if (step !== "countdown") return;
@@ -122,6 +133,25 @@ function App() {
     }, 900);
     return () => clearTimeout(timer);
   }, [step, countdownValue]);
+
+  const sendAgentMessage = () => {
+    const msg = agentMessage.trim();
+    if (!msg || agentLoading) return;
+    setAgentLoading(true);
+    setAgentReply("");
+    fetch("/api/agent/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: msg }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.reply != null) setAgentReply(d.reply);
+        else if (d.error) setAgentReply("Error: " + d.error + (d.hint ? " " + d.hint : ""));
+      })
+      .catch((err) => setAgentReply("Request failed: " + String(err)))
+      .finally(() => setAgentLoading(false));
+  };
 
   const workoutTitle = useMemo(() => {
     if (!selectedWorkout) return "Workout";
@@ -192,6 +222,39 @@ function App() {
         <button className="primary-btn" onClick={() => setStep("workout-select")}>
           Start Workout
         </button>
+        <div className="agent-panel">
+          <h3 className="agent-panel-title">AI Coach (Gemini)</h3>
+          {agentAvailable === false && (
+            <p className="agent-unavailable">
+              Add <code>GEMINI_API_KEY</code> to <code>.env</code> at project root to enable the AI coach.
+            </p>
+          )}
+          {agentAvailable === true && (
+            <>
+              <div className="agent-input-row">
+                <input
+                  type="text"
+                  className="agent-input"
+                  placeholder="e.g. Make the robot stand up and wave hello"
+                  value={agentMessage}
+                  onChange={(e) => setAgentMessage(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && sendAgentMessage()}
+                  disabled={agentLoading}
+                />
+                <button
+                  className="agent-send-btn"
+                  onClick={sendAgentMessage}
+                  disabled={agentLoading || !agentMessage.trim()}
+                >
+                  {agentLoading ? "..." : "Send"}
+                </button>
+              </div>
+              {agentReply && (
+                <div className="agent-reply">{agentReply}</div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     );
   }
