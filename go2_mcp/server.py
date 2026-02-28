@@ -95,11 +95,12 @@ def execute_action(name: str) -> str:
 
 @mcp.tool()
 def move(vx: float, vy: float = 0.0, vyaw: float = 0.0) -> str:
-    """Move the robot with the given velocity.
+    """Move the robot with the given velocity (uses go2_bridge movement_loop).
 
-    The robot must be standing first. Velocities are in m/s (linear) and rad/s (rotation).
-    The movement continues at the given velocity until a stop command or new move command.
-    The bridge has a 250ms safety timeout — if no new command arrives, the robot stops automatically.
+    The bridge movement loop (go2_bridge/movement_loop.py) runs at 20 Hz and relays this
+    velocity to the robot. The robot must be standing first. Velocities are in m/s (linear)
+    and rad/s (rotation). If no new command arrives within the timeout (default 250ms),
+    the loop automatically zeros velocity.
 
     Args:
         vx: Forward/backward velocity (-1.0 to 1.0). Positive = forward.
@@ -112,8 +113,20 @@ def move(vx: float, vy: float = 0.0, vyaw: float = 0.0) -> str:
 
 @mcp.tool()
 def stop() -> str:
-    """Immediately stop all robot movement. Use this as an emergency stop or to halt motion."""
+    """Immediately stop all robot movement (zeros velocity in the bridge movement_loop). Use as emergency stop."""
     resp = _send_command("stop")
+    return _format_response(resp)
+
+
+@mcp.tool()
+def get_movement_status() -> str:
+    """Get the current movement loop state from go2_bridge (velocity + config).
+
+    Returns the last commanded velocity (vx, vy, vyaw) and the movement loop config
+    (move_hz, move_timeout_ms). The bridge runs a 20 Hz loop that relays velocity to
+    the robot; if no command is received within the timeout, velocity is zeroed.
+    """
+    resp = _send_command("movement_status")
     return _format_response(resp)
 
 

@@ -116,8 +116,14 @@ class Robot:
     # ── movement ──────────────────────────────────────────────────
 
     def move(self, vx: float, vy: float, vyaw: float) -> None:
-        """Send a single move command via the appropriate client."""
-        if self.obstacle_avoidance_enabled:
+        """Send a single move command via the appropriate client.
+
+        Note: ObstaclesAvoidClient only has forward-facing sensors and does not
+        support backward movement (negative vx).  When obstacle avoidance is
+        enabled we fall back to SportClient for any command with vx < 0.
+        """
+        use_obstacles = self.obstacle_avoidance_enabled and vx >= 0
+        if use_obstacles:
             code = self.obstacles.Move(vx, vy, vyaw)
             if vx != 0 or vy != 0 or vyaw != 0:
                 log.debug("obstacles.Move(%.2f, %.2f, %.2f) -> %s", vx, vy, vyaw, code)

@@ -13,7 +13,7 @@ MOVE_TIMEOUT_MS: int = int(os.getenv("GO2_MOVE_TIMEOUT_MS", "250"))
 
 CAMERA_FPS: int = int(os.getenv("GO2_CAMERA_FPS", "10"))
 
-OBSTACLE_AVOIDANCE: bool = os.getenv("GO2_OBSTACLE_AVOIDANCE", "1") == "1"
+OBSTACLE_AVOIDANCE: bool = os.getenv("GO2_OBSTACLE_AVOIDANCE", "0") == "1"
 
 BRIDGE_HOST: str = os.getenv("GO2_BRIDGE_HOST", "localhost")
 WEBAPP_HOST: str = os.getenv("GO2_WEBAPP_HOST", "0.0.0.0")

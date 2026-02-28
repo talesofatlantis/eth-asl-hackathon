@@ -118,8 +118,8 @@ async def agent_chat(request: Request):
     message = body.get("message", "").strip()
     if not message:
         return JSONResponse(status_code=400, content={"error": "message is required"})
-    reply = await chat(message)
-    return JSONResponse(content={"reply": reply})
+    reply, operations = await chat(message)
+    return JSONResponse(content={"reply": reply, "operations": operations})
 
 
 # ── WebSocket: camera stream ─────────────────────────────────────

@@ -35,6 +35,11 @@ class MovementLoop:
             self._vyaw = vyaw
             self._last_cmd_time = time.monotonic()
 
+    def get_velocity(self) -> tuple[float, float, float]:
+        """Return current target velocity (vx, vy, vyaw)."""
+        with self._lock:
+            return (self._vx, self._vy, self._vyaw)
+
     def stop(self) -> None:
         """Zero velocity immediately."""
         with self._lock:

@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from . import mcp_client
+
+# Send move to bridge every 200ms to keep velocity active (bridge timeout is 250ms).
+_MOVE_HEARTBEAT_INTERVAL_S = 0.2
+_MAX_DURATION_S = 10.0
 
 
 async def get_robot_status() -> str:
@@ -21,8 +27,19 @@ async def execute_robot_action(name: str) -> str:
 
 
 async def move_robot(vx: float, vy: float = 0.0, vyaw: float = 0.0) -> str:
-    """Move the robot. vx/vy in m/s (-1 to 1), vyaw in rad/s. Robot must be standing first."""
+    """Single brief velocity command (~250ms). For 'move backwards' or any real movement use move_robot_for_duration instead. vx/vy in m/s, vyaw in rad/s. Stand up first. Backward = negative vx."""
     return await mcp_client.call_tool("move", {"vx": vx, "vy": vy, "vyaw": vyaw})
+
+
+async def move_robot_for_duration(vx: float, duration_seconds: float = 2.0, vy: float = 0.0, vyaw: float = 0.0) -> str:
+    """Move the robot at the given velocity for a sustained duration (keeps sending move so the bridge does not timeout). Use this for 'move backwards', 'move backward', '3 steps back', or any directional move. Call stand_up first. duration_seconds defaults to 2.0, max 10. Backward = negative vx (e.g. -0.3)."""
+    duration_seconds = max(0.1, min(float(duration_seconds), _MAX_DURATION_S))
+    steps = max(1, int(duration_seconds / _MOVE_HEARTBEAT_INTERVAL_S))
+    for _ in range(steps):
+        await mcp_client.call_tool("move", {"vx": vx, "vy": vy, "vyaw": vyaw})
+        await asyncio.sleep(_MOVE_HEARTBEAT_INTERVAL_S)
+    result = await mcp_client.call_tool("stop", {})
+    return f"Moved for {duration_seconds:.1f}s then stopped. {result}"
 
 
 async def stop_robot() -> str:

@@ -73,6 +73,8 @@ class CommandHandler:
             return self._handle_list_actions()
         if cmd == "status":
             return self._handle_status()
+        if cmd == "movement_status":
+            return self._handle_movement_status()
         return make_response(False, f"unknown command: {cmd}")
 
     # ── handlers ──────────────────────────────────────────────────
@@ -131,4 +133,15 @@ class CommandHandler:
             "obstacle_avoidance": self._robot.obstacle_avoidance_enabled,
             "speed_level": self._robot.speed_level,
             "light_on": self._robot.light_on,
+        })
+
+    def _handle_movement_status(self) -> bytes:
+        """Return current movement loop state (velocity + config from go2_bridge/movement_loop)."""
+        vx, vy, vyaw = self._movement.get_velocity()
+        return make_response(True, "ok", {
+            "vx": vx,
+            "vy": vy,
+            "vyaw": vyaw,
+            "move_hz": config.MOVE_HZ,
+            "move_timeout_ms": config.MOVE_TIMEOUT_MS,
         })

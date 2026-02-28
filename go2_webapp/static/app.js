@@ -1,4 +1,4 @@
-const { useEffect, useMemo, useState } = React;
+const { useEffect, useMemo, useRef, useState } = React;
 const MOVE_DURATION_SECONDS = 20;
 
 const DEFAULT_WORKOUTS = [
@@ -116,6 +116,9 @@ function App() {
   const [agentMessage, setAgentMessage] = useState("");
   const [agentReply, setAgentReply] = useState("");
   const [agentLoading, setAgentLoading] = useState(false);
+  const [agentLog, setAgentLog] = useState([]);
+  const lastExecutedMoveIndexRef = useRef(-1);
+  const agentLogIdRef = useRef(0);
 
   useEffect(() => {
     fetch("/api/agent/status")
@@ -141,6 +144,7 @@ function App() {
     if (!msg || agentLoading) return;
     setAgentLoading(true);
     setAgentReply("");
+    const time = new Date().toLocaleTimeString();
     fetch("/api/agent/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -148,10 +152,34 @@ function App() {
     })
       .then((r) => r.json())
       .then((d) => {
-        if (d.reply != null) setAgentReply(d.reply);
-        else if (d.error) setAgentReply("Error: " + d.error + (d.hint ? " " + d.hint : ""));
+        let reply = "";
+        let status = "ok";
+        const operations = Array.isArray(d.operations) ? d.operations : [];
+        if (d.reply != null) {
+          reply = d.reply;
+          setAgentReply(d.reply);
+        } else if (d.error) {
+          reply = "Error: " + d.error + (d.hint ? " " + d.hint : "");
+          setAgentReply(reply);
+          status = "error";
+        } else {
+          reply = "(no reply)";
+          setAgentReply(reply);
+          status = "error";
+        }
+        setAgentLog((prev) => [
+          { id: ++agentLogIdRef.current, time, message: msg, reply, status, operations },
+          ...prev.slice(0, 49),
+        ]);
       })
-      .catch((err) => setAgentReply("Request failed: " + String(err)))
+      .catch((err) => {
+        const errMsg = "Request failed: " + String(err);
+        setAgentReply(errMsg);
+        setAgentLog((prev) => [
+          { id: ++agentLogIdRef.current, time, message: msg, reply: errMsg, status: "error", operations: [] },
+          ...prev.slice(0, 49),
+        ]);
+      })
       .finally(() => setAgentLoading(false));
   };
 
@@ -201,6 +229,24 @@ function App() {
     if (workoutMoves.length === 0) return "No move selected";
     return workoutMoves[currentMoveIndex] || workoutMoves[0];
   }, [workoutMoves, currentMoveIndex]);
+
+  // Reset "last executed move" when leaving workout so next run sends from index 0.
+  useEffect(() => {
+    if (step !== "workout") lastExecutedMoveIndexRef.current = -1;
+  }, [step]);
+
+  // Send the current move to the robot when the workout is active and the move index changes.
+  useEffect(() => {
+    if (step !== "workout" || workoutMoves.length === 0) return;
+    if (currentMoveIndex === lastExecutedMoveIndexRef.current) return;
+    lastExecutedMoveIndexRef.current = currentMoveIndex;
+    const moveName = workoutMoves[currentMoveIndex];
+    fetch("/api/command", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cmd: "action", params: { name: moveName } }),
+    }).catch((err) => console.error("Failed to send move to robot:", err));
+  }, [step, workoutMoves, currentMoveIndex]);
 
   const beginCountdown = () => {
     setCountdownValue(3);
@@ -260,6 +306,46 @@ function App() {
               {agentReply && (
                 <div className="mt-3 p-4 bg-neutral-50 border border-neutral-100 rounded-xl text-neutral-700 text-[15px] leading-relaxed whitespace-pre-wrap">
                   {agentReply}
+                </div>
+              )}
+              {agentLog.length > 0 && (
+                <div className="mt-4">
+                  <h4 className="font-heading text-sm font-semibold text-neutral-600 mb-2">Log</h4>
+                  <div className="max-h-48 overflow-y-auto rounded-lg border border-neutral-200 bg-neutral-50 p-2 font-mono text-xs">
+                    {agentLog.map((entry) => (
+                      <div key={entry.id} className="border-b border-neutral-200 pb-2 mb-2 last:border-0 last:mb-0 last:pb-0">
+                        <div className="text-neutral-500 flex gap-2">
+                          <span className="shrink-0">[{entry.time}]</span>
+                          <span className={entry.status === "error" ? "text-red-600 font-medium" : "text-neutral-600"}>
+                            {entry.status === "error" ? "ERROR" : "OK"}
+                          </span>
+                        </div>
+                        <div className="mt-0.5 text-neutral-700 break-words">&gt; {entry.message}</div>
+                        {entry.operations && entry.operations.length > 0 && (
+                          <div className="mt-1.5 pl-2 border-l-2 border-neutral-300 space-y-1">
+                            <div className="text-neutral-500 font-medium">Operations:</div>
+                            {entry.operations.map((op, i) => (
+                              <div key={i} className="text-neutral-600">
+                                <span className="text-neutral-700 font-medium">{op.tool}</span>
+                                <span className="text-neutral-500">
+                                  ({Object.entries(op.args || {})
+                                    .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
+                                    .join(", ")})
+                                </span>
+                                <span className="text-neutral-500"> → </span>
+                                <span className={op.result && op.result.startsWith("ERROR") ? "text-red-600" : "text-neutral-600"}>
+                                  {op.result && op.result.length > 80 ? op.result.slice(0, 80) + "…" : op.result || "—"}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div className={`mt-0.5 break-words whitespace-pre-wrap ${entry.status === "error" ? "text-red-600" : "text-neutral-600"}`}>
+                          {entry.reply}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </>
