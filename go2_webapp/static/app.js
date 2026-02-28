@@ -6,20 +6,20 @@ const MAX_WORKOUT_EXERCISES = 5;
 const DEFAULT_WORKOUTS = [
   {
     id: "yoga-relax",
-    label: "Relax?",
+    label: "Relaxed",
     exerciseName: "Gentle Yoga Flow",
     moves: ["stretch", "hello", "sit", "stand_up", "heart"],
   },
   {
     id: "full-body",
-    label: "Full Body",
+    label: "Advanced",
     exerciseName: "Full Body Activation",
     moves: ["stand_up", "balance_stand", "front_jump", "recovery_stand", "stop_move"],
   },
   {
     id: "hardcode",
-    label: "Hardcode",
-    exerciseName: "Hardcode Power Set",
+    label: "Hardcore",
+    exerciseName: "Hardcore Power Set",
     moves: ["dance1", "dance2", "front_flip", "back_flip", "left_flip", "hand_stand"],
   },
 ];
@@ -186,7 +186,10 @@ function App() {
   const [agentReply, setAgentReply] = useState("");
   const [agentLoading, setAgentLoading] = useState(false);
   const [agentLog, setAgentLog] = useState([]);
+  const [coachSlide, setCoachSlide] = useState(0); // 0 = intro, 1 = chat (onboarding-style)
+  const [workoutCommandStatus, setWorkoutCommandStatus] = useState("");
   const lastExecutedMoveIndexRef = useRef(-1);
+  const standUpSentRef = useRef(false);
   const agentLogIdRef = useRef(0);
 
   useEffect(() => {
@@ -304,10 +307,28 @@ function App() {
     return workoutMoves[currentMoveIndex] || workoutMoves[0];
   }, [workoutMoves, currentMoveIndex]);
 
-  // Reset "last executed move" when leaving workout so next run sends from index 0.
+  // Reset when leaving workout so next run sends from index 0 and sends stand_up again.
   useEffect(() => {
-    if (step !== "workout") lastExecutedMoveIndexRef.current = -1;
+    if (step !== "workout") {
+      lastExecutedMoveIndexRef.current = -1;
+      standUpSentRef.current = false;
+      setWorkoutCommandStatus("");
+    }
   }, [step]);
+
+  // When workout starts, send stand_up once so the robot is standing before the first exercise.
+  useEffect(() => {
+    if (step !== "workout" || workoutMoves.length === 0 || standUpSentRef.current) return;
+    standUpSentRef.current = true;
+    fetch("/api/command", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cmd: "action", params: { name: "stand_up" } }),
+    })
+      .then((r) => r.json())
+      .then((d) => setWorkoutCommandStatus(d.ok ? "Robot standing…" : d.msg || "Stand sent"))
+      .catch((err) => setWorkoutCommandStatus("Stand failed: " + err.message));
+  }, [step, workoutMoves.length]);
 
   // Send the current move to the robot when the workout is active and the move index changes.
   useEffect(() => {
@@ -315,11 +336,18 @@ function App() {
     if (currentMoveIndex === lastExecutedMoveIndexRef.current) return;
     lastExecutedMoveIndexRef.current = currentMoveIndex;
     const moveName = workoutMoves[currentMoveIndex];
+    setWorkoutCommandStatus("Sending: " + moveName + "…");
     fetch("/api/command", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ cmd: "action", params: { name: moveName } }),
-    }).catch((err) => console.error("Failed to send move to robot:", err));
+    })
+      .then((r) => r.json())
+      .then((d) => setWorkoutCommandStatus(d.ok ? "Sent: " + moveName : "Error: " + (d.msg || "unknown")))
+      .catch((err) => {
+        console.error("Failed to send move to robot:", err);
+        setWorkoutCommandStatus("Failed: " + err.message);
+      });
   }, [step, workoutMoves, currentMoveIndex]);
 
   const beginCountdown = () => {
@@ -333,45 +361,70 @@ function App() {
     setCountdownValue(3);
     setWorkoutStartedAtMs(null);
     setClockMs(Date.now());
+    setCoachSlide(0);
     setStep("start");
   };
 
   const screenBase = "min-h-screen max-w-4xl mx-auto px-8 md:px-10 py-12 md:py-16";
-  const tileClass = "rounded-sm aspect-[3/4] min-h-[200px] px-6 py-5 text-left text-lg md:text-xl font-semibold text-neutral-900 bg-white border border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50 transition-colors duration-200 cursor-pointer";
+  const cardBaseClass = "relative grid h-full w-full overflow-hidden rounded-xl border border-neutral-200 bg-neutral-900 shadow-sm transition-all duration-300 ease-in-out group cursor-pointer text-left";
 
   if (step === "start") {
     return (
-      <div className={`${screenBase} pt-24`}>
+      <div className={`${screenBase} pt-24 flex min-h-screen flex-col items-center justify-center`}>
         <h1 className="font-heading text-xl md:text-2xl font-bold tracking-tight text-neutral-900 fixed top-0 left-0 p-6 md:p-8 z-10">ROBOGYM</h1>
-        <p className="text-neutral-500 text-base mb-6">Train with your robot dog coach</p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-10">
+        <div className="flex flex-1 w-full flex-col items-center justify-center">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-10 w-full max-w-3xl mx-auto">
           {WORKOUTS.map((workout) => (
             <button
               key={workout.id}
-              className={tileClass}
+              type="button"
+              className={`${cardBaseClass} aspect-[3/4] min-h-[200px] hover:border-neutral-400 hover:shadow-md active:scale-[0.98]`}
               onClick={() => {
                 setSelectedWorkout(workout);
                 setStep("trainer-select");
               }}
             >
-              {workout.label}
+              <div className="absolute inset-0 bg-gradient-to-b from-neutral-700 to-neutral-900 transition-transform duration-500 ease-in-out group-hover:scale-105" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+              <div className="relative z-10 flex h-full flex-col justify-end p-5 text-white transition-transform duration-300 ease-in-out group-hover:-translate-y-1">
+                <p className="text-xs font-medium uppercase tracking-wider text-neutral-300">Mode</p>
+                <h2 className="mt-1 text-xl font-bold leading-tight tracking-tight text-white md:text-2xl">
+                  {workout.label}
+                </h2>
+              </div>
             </button>
           ))}
+          </div>
         </div>
-        <div className="w-full max-w-lg p-6 bg-white border border-neutral-200 rounded-2xl">
-          <h3 className="font-heading text-base font-semibold text-neutral-900 mb-3">AI Coach (Gemini)</h3>
-          {agentAvailable === false && (
+        <div className="w-full max-w-2xl flex items-end gap-4">
+          <div className="relative shrink-0 self-center">
+            <img src="/robot-logo.png" alt="" className="h-24 md:h-28 w-auto object-contain" />
+            <div
+              className="absolute inset-0 pointer-events-none rounded-lg"
+              style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.92) 0%, transparent 18%)' }}
+              aria-hidden
+            />
+          </div>
+          <div className="flex-1 min-w-0 p-6 bg-white border border-neutral-200 rounded-2xl">
+          <h3 className="font-heading text-base font-semibold text-neutral-900 mb-3">Robocoach</h3>
+          <div className="overflow-hidden">
+            {coachSlide === 0 && (
+              <p className="text-neutral-700 text-[15px] leading-relaxed mb-4">
+                Hey, I&apos;m Robodog, your new fitness coach. I can support you with questions &amp; cheer for you, and guide you.
+              </p>
+            )}
+            {coachSlide === 1 && (
+              agentAvailable === false ? (
             <p className="text-sm text-neutral-500">
-              Add <code className="bg-neutral-100 px-1.5 py-0.5 rounded text-neutral-700">GEMINI_API_KEY</code> to <code className="bg-neutral-100 px-1.5 py-0.5 rounded text-neutral-700">.env</code> at project root to enable the AI coach.
+              Add <code className="bg-neutral-100 px-1.5 py-0.5 rounded text-neutral-700">GEMINI_API_KEY</code> to <code className="bg-neutral-100 px-1.5 py-0.5 rounded text-neutral-700">.env</code> at project root to enable Robocoach.
             </p>
-          )}
-          {agentAvailable === true && (
-            <>
+          ) : (
+              <>
               <div className="flex gap-3 mb-3">
                 <input
                   type="text"
                   className="flex-1 px-4 py-2.5 border border-neutral-200 rounded-xl bg-neutral-50 text-neutral-900 placeholder-neutral-400 text-[15px] focus:ring-2 focus:ring-neutral-900 focus:border-neutral-900 outline-none transition-shadow"
-                  placeholder="e.g. Make the robot stand up and wave hello"
+                  placeholder="e.g. Ask a workout question"
                   value={agentMessage}
                   onChange={(e) => setAgentMessage(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && sendAgentMessage()}
@@ -431,7 +484,22 @@ function App() {
                 </div>
               )}
             </>
-          )}
+          )
+            )}
+          </div>
+          <div className="flex justify-center gap-2 mt-4">
+            {[0, 1].map((i) => (
+              <button
+                key={i}
+                type="button"
+                aria-label={i === 0 ? "Intro" : "Chat"}
+                onClick={() => setCoachSlide(i)}
+                className="h-1 rounded-full min-w-[24px] transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 focus-visible:ring-offset-1"
+                style={{ width: i === coachSlide ? 32 : 24, backgroundColor: i === coachSlide ? "#171717" : "#d4d4d4" }}
+              />
+            ))}
+          </div>
+          </div>
         </div>
       </div>
     );
@@ -439,22 +507,32 @@ function App() {
 
   if (step === "trainer-select") {
     return (
-      <div className={screenBase}>
+      <div className={`${screenBase} flex min-h-screen flex-col items-center justify-center`}>
         <h2 className="font-heading text-center mb-10 text-2xl md:text-3xl font-bold tracking-tight text-neutral-900">Select Your Trainer</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <div className="flex w-full flex-1 items-center justify-center">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 w-full max-w-3xl mx-auto">
           {TRAINERS.map((trainer) => (
             <button
               key={trainer.id}
-              className={`${tileClass} flex flex-col justify-end items-start`}
+              type="button"
+              className={`${cardBaseClass} aspect-[3/4] min-h-[200px] hover:border-neutral-400 hover:shadow-md active:scale-[0.98] flex flex-col justify-end items-start`}
               onClick={() => {
                 setSelectedTrainer(trainer);
                 setStep("instructions");
               }}
             >
-              <span className="font-heading text-lg font-semibold text-neutral-900">{trainer.name}</span>
-              <span className="mt-1.5 text-sm font-medium text-neutral-500">{trainer.tagline}</span>
+              <div className="absolute inset-0 bg-gradient-to-b from-neutral-600 to-neutral-800 transition-transform duration-500 ease-in-out group-hover:scale-105" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+              <div className="relative z-10 p-5 text-white transition-transform duration-300 ease-in-out group-hover:-translate-y-1">
+                <p className="text-xs font-medium uppercase tracking-wider text-neutral-300">Coach</p>
+                <h2 className="mt-1 font-heading text-xl font-bold leading-tight tracking-tight text-white md:text-2xl">
+                  {trainer.name}
+                </h2>
+                <span className="mt-1.5 block text-sm font-medium text-neutral-400">{trainer.tagline}</span>
+              </div>
             </button>
           ))}
+          </div>
         </div>
         <button
           className="mt-10 mx-auto block rounded-full px-8 py-3.5 bg-black hover:bg-neutral-800 text-white font-semibold text-sm transition-colors"
@@ -525,6 +603,11 @@ function App() {
         <p className="mt-2 text-neutral-500 text-base">
           Current exercise: <strong className="text-neutral-900">{currentMove}</strong> ({moveSecondsLeft}s)
         </p>
+        {workoutCommandStatus && (
+          <p className="mt-1 text-sm text-neutral-600 font-medium">
+            {workoutCommandStatus}
+          </p>
+        )}
       </div>
       <CameraFeed />
       <button

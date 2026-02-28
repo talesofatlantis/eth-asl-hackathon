@@ -3,20 +3,20 @@
 window.ROBOGYM_WORKOUTS = [
   {
     id: "yoga-relax",
-    label: "Relax?",
+    label: "Relaxed",
     exerciseName: "Gentle Yoga Flow",
     moves: ["stretch", "hello", "sit", "stand_up", "heart"],
   },
   {
     id: "full-body",
-    label: "Full Body",
+    label: "Advanced",
     exerciseName: "Full Body Activation",
     moves: ["stand_up", "balance_stand", "front_jump", "recovery_stand", "stop_move"],
   },
   {
     id: "hardcode",
-    label: "Hardcode",
-    exerciseName: "Hardcode Power Set",
+    label: "Hardcore",
+    exerciseName: "Hardcore Power Set",
     moves: ["dance1", "dance2", "front_flip", "back_flip", "left_flip", "hand_stand"],
   },
 ];
